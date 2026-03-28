@@ -1,0 +1,7 @@
+Bucketer
+- Preflop
+    - Only has SB and BB positions cuz of headsup
+    - Effective stack only considers two players cuz of headsup
+    - History to bucket is hard coded for headsup, if statements for each of the two positions actions
+    - Consider the raise size bucket as well, not sure whats going on there
+    - Bet size bucketing only considers the betting array to have a size of two because of headsup, one recent bet sizing for each person

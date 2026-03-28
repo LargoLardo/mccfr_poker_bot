@@ -14,7 +14,7 @@ class Logger:
     def log(self, message: str) -> None:
         print(message)
         with open(self.output_path, "a") as f:
-            f.write(message + "\n")
+            f.write(str(message) + "\n")
 
     def clear_logs(self) -> None:
         with open(self.output_path, "w") as f:
