@@ -174,7 +174,7 @@ def play_one_sided_heads_up_hand() -> State:
 
     return state
 
-def debug_play_one_sided_heads_up_hand() -> State:
+def bucket_play_one_sided_heads_up_hand() -> State:
     state = NoLimitTexasHoldem.create_state(
         (
             Automation.ANTE_POSTING,
@@ -208,7 +208,7 @@ def debug_play_one_sided_heads_up_hand() -> State:
     while state.actor_index is not None:
         # Log once whenever a new street begins
         match state.street_index:
-            case 0:
+            case 0: # IF PREFLOP: 
                 bucket = bucketer.preflop_bucket(state, pf_history)
                 logger.log(state.hole_cards[state.actor_index])
                 logger.log(bucket)
@@ -260,5 +260,5 @@ def debug_play_one_sided_heads_up_hand() -> State:
 if __name__ == "__main__":
     logger = Logger(output_path="holdem_log.txt")
     logger.clear_logs() # clears logs so new hand can be logged
-    debug_play_one_sided_heads_up_hand()
+    bucket_play_one_sided_heads_up_hand()
     # play_one_sided_heads_up_hand()

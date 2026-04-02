@@ -4,7 +4,7 @@ class Bucketer:
     def __init__(self) -> None:
         pass
 
-    def preflop_bucket(self, state: State, history: list):
+    def preflop_bucket(self, state: State, history: list) -> tuple:
         actor = state.actor_index
         hole_cards = str(state.hole_cards[actor]).strip('[]').split(', ')
 

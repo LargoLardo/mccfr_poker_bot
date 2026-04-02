@@ -7,5 +7,4 @@ networkx==3.6.1
 numpy==2.4.3
 pokerkit==0.7.3
 sympy==1.14.0
-torch==2.10.0
 typing_extensions==4.15.0

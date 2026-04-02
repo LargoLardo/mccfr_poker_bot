@@ -40,7 +40,7 @@ TERMINALS = {'bc', 'bb', 'cc', 'cbc', 'cbb'}
 def is_terminal(h):
     return h in TERMINALS
 
-def payoff_p1(h, cards):
+def payoff_p0(h, cards):
     p0_wins = CARDS.index(cards[0]) > CARDS.index(cards[1])
     if h == 'bb':  return  1
     if h == 'cbb': return -1
@@ -48,7 +48,7 @@ def payoff_p1(h, cards):
     return pot if p0_wins else -pot
 
 def current_player(h):
-    return len(h) % 2   # 0 = P1, 1 = P2
+    return len(h) % 2   # 0 = P0, 1 = P1
 
 
 # ── Info-set node ──────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ def mccfr(cards, h, traverser):
     Opponent   -> SAMPLE one action (the key Monte Carlo step)
     """
     if is_terminal(h):
-        v = payoff_p1(h, cards)
+        v = payoff_p0(h, cards)
         return v if traverser == 0 else -v
 
     p       = current_player(h)
@@ -125,20 +125,20 @@ def mccfr(cards, h, traverser):
 
 def train(iters=100_000):
     """Two traversals per iteration (alternate which player is traverser)."""
-    p1_total = 0.0
+    p0_total = 0.0
     for _ in range(iters):
         # Sample chance node: deal two cards
         deck = CARDS[:]
         random.shuffle(deck)
         cards = (deck[0], deck[1])
 
-        # Traverse as P1, then as P2
+        # Traverse as P0, then as P1
         v0 = mccfr(cards, '', traverser=0)
         v1 = mccfr(cards, '', traverser=1)
-        p1_total += v0   # v0 is already P1's payoff
+        p0_total += v0   # v0 is already P0's payoff
 
     print(f"\nTraining complete ({iters:,} iterations, {2*iters:,} traversals)")
-    print(f"  Avg P1 value (from P1 traversals) : {p1_total/iters:+.5f}")
+    print(f"  Avg P0 value (from P0 traversals) : {p0_total/iters:+.5f}")
     print(f"  Nash equilibrium value            : {-1/18:+.5f}\n")
 
 
@@ -174,11 +174,11 @@ Nash equilibrium for Kuhn Poker:
   K:b    always call
   K:c    always bet (after checking)
   K:cb   always call
-  Game value for P1 = -1/18 ≈ -0.0556
+  Game value for P0 = -1/18 ≈ -0.0556
 """)
 
 
 if __name__ == '__main__':
-    random.seed(42)
+    random.seed() #Initialize with a certain seed
     train(100_000)
     display()
