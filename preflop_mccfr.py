@@ -77,18 +77,16 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
     if bucket not in nodes:
         nodes[bucket] = Node()
     node  = nodes[bucket]
-    strat = node.get_strategy(actions)
 
     if cur_actor == traverser:
         # ── Traversing player: explore every action ──────────────────────────
-        node.accumulate_strategy(strat, actions)   # track average strategy
 
         utils = {}
 
+        cant_raise = False
         for action in actions:
             next_state = deepcopy(state)
             next_pf_history = pf_history.copy()
-            cant_raise = False
             match action:
                 case 'fold':
                     next_state.fold()
@@ -97,23 +95,24 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
                     next_state.check_or_call()
                     next_pf_history.append('check/call')
                 case 'raise':
-                    amount = max(state.bets) + state.total_pot_amount * 1/2 #Raises half pot by default
-                    if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
-                        all_in_amt = state.stacks[state.actor_index]
-                        min_bet = state.min_completion_betting_or_raising_to_amount
-                        if min_bet is None:
-                            min_bet = 0
-                        amount = all_in_amt if all_in_amt >= min_bet else None
+                    amount = get_raise_size(state, bucket)
                     if next_state.can_complete_bet_or_raise_to(amount):
                         next_state.complete_bet_or_raise_to(amount)
                         next_pf_history.append('raise')
                     else:
-                        cant_raise = True 
-            utils[action] = mccfr(next_state, traverser, next_pf_history) if not cant_raise else 0
+                        cant_raise = True
+            if not cant_raise:
+                utils[action] = mccfr(next_state, traverser, next_pf_history) 
+
+        if cant_raise:
+            actions = ['fold', 'check/call']
+
+        strat = node.get_strategy(actions)
+
+        node.accumulate_strategy(strat, actions)   # track average strategy
 
         node_util = sum(strat[action] * utils[action] for action in actions)
-
-        # Instantaneous counterfactual regret (no reach prob needed here)
+        
         for action in actions:
             node.regret_sum[action] += utils[action] - node_util
 
@@ -121,10 +120,14 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
 
     else:
         # ── Opponent: SAMPLE a single action ─────────────────────────────────
-        probs = [strat[a] for a in actions]
-        sampled_action = random.choices(actions, weights=probs)[0]
         next_state = deepcopy(state)
         next_pf_history = pf_history.copy()
+        amount = get_raise_size(state, bucket)
+        if not next_state.can_complete_bet_or_raise_to(amount):
+            actions = ['fold', 'check/call']
+        strat = node.get_strategy(actions)
+        probs = [strat[action] for action in actions]
+        sampled_action = random.choices(actions, weights=probs)[0]
         if actions.index(sampled_action) == 0:
             next_state.fold()
             next_pf_history.append('fold')
@@ -132,21 +135,21 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
             next_state.check_or_call()
             next_pf_history.append('check/call')
         elif actions.index(sampled_action) >= 2:
-            amount = max(state.bets) + state.total_pot_amount * 1/2 #Raises half pot by default
-            if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
-                all_in_amt = state.stacks[state.actor_index]
-                min_bet = state.min_completion_betting_or_raising_to_amount
-                if min_bet is None:
-                    min_bet = 0
-                amount = all_in_amt if all_in_amt >= min_bet else None
-            if next_state.can_complete_bet_or_raise_to(amount):
-                next_state.complete_bet_or_raise_to(amount)
-                next_pf_history.append('raise')
-            else:
-                next_state.check_or_call()
-                next_pf_history.append('check/call')
+            next_state.complete_bet_or_raise_to(amount)
+            next_pf_history.append('raise')
         return mccfr(next_state, traverser, next_pf_history)
 
+# -- Helper functions -------------------------------
+
+def get_raise_size(state: State, bucket: tuple) -> float:
+    amount = max(state.bets) + state.total_pot_amount * 1/2 #Raises half pot by default
+    if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
+        all_in_amt = state.stacks[state.actor_index]
+        min_bet = state.min_completion_betting_or_raising_to_amount
+        if min_bet is None:
+            min_bet = 0
+        amount = all_in_amt if all_in_amt >= min_bet else None
+    return amount
 
 # ── Training loop ──────────────────────────────────────────────────────────────
 
@@ -198,7 +201,7 @@ if __name__ == '__main__':
     logger = Logger(output_path="holdem_log.txt")
     logger.clear_logs() # clears logs so new hand can be logged
 
-    random.seed(42) 
+    random.seed() 
     train(200_000)
     
     for key, value in nodes.items():
