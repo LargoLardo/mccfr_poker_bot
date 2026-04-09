@@ -137,21 +137,21 @@ class Bucketer:
         size_bb = to_call / bb if bb > 0 else to_call
 
         if history_bucket == "limped":
-            size_bucket = "limp"
+            size_bucket = "Limp"
         elif size_bb <= 2.0 and to_call > 0:
-            size_bucket = "min_open"
+            size_bucket = "~2.0bb raise"
         elif 2.0 < size_bb <= 2.75:
-            size_bucket = "2.5x_open"
+            size_bucket = "~2.75bb raise"
         elif 2.75 < size_bb < 6.0:
-            size_bucket = "large_open"
+            size_bucket = "~6.0bb raise"
         elif 6.0 <= size_bb < 10.0:
-            size_bucket = "small_3bet"
+            size_bucket = "~10.0bb raise"
         elif 10.0 <= size_bb < 25.0:
-            size_bucket = "large_3bet"
+            size_bucket = "~25.0bb raise"
         elif size_bb >= 25.0:
-            size_bucket = "jam"
+            size_bucket = "Jam (>25.00bb) raise"
         else:
-            size_bucket = "limp"
+            size_bucket = "Limp"
 
         return (
             hand_bucket,

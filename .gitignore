@@ -1,3 +1,7 @@
 venv
 __pycache__
-holdem_log.txt
+logs
+docs
+debug_logs
+loaded_nodes
+

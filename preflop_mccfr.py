@@ -1,7 +1,10 @@
 import random
+import os
+import pickle
+from datetime import datetime
 from tqdm import tqdm
 from copy import deepcopy
-from pokerkit import Automation, Mode, NoLimitTexasHoldem, Pot, RunoutCountSelection, StandardHand, State, StandardHighHand
+from pokerkit import Automation, Mode, NoLimitTexasHoldem, State, StandardHighHand
 from collections import defaultdict
 from logger import Logger
 from bucketer import Bucketer
@@ -13,39 +16,12 @@ bucketer = Bucketer()
 def is_terminal(state: State) -> bool:
     return state.actor_index is None or state.street_index > 0#Stop simulating after pre-flop
 
-def payoff_p0(state: State, pf_history: list[str]):
+def payoff_p0(state: State):
     while state.actor_index is not None: #Stop simulating after pre-flop so just check thru
         state.check_or_call()
-
     if state.folded_status:
-        # if state.stacks[0] > state.starting_stacks[0]:
-        #     test_logger.log(f"{1 + pf_history.count('raise')}, Folded")
-        #     return 1 + pf_history.count('raise')
-        # elif state.stacks[0] < state.starting_stacks[0]:
-        #     test_logger.log(f"{-1 * (1 + pf_history.count('raise'))}, Folded")
-        #     return -1 * (1 + pf_history.count('raise'))
-        # else: 
-        #     test_logger.log("0, Folded")
-        #     return 0
         return state.stacks[0] - state.starting_stacks[0]
-    p0_holes = ''.join(repr(c) for c in state.hole_cards[0] if c is not None) # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-    p1_holes = ''.join(repr(c) for c in state.hole_cards[1] if c is not None) # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-    board = '' # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-    for i in range(5): # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-        board += repr(state.board_cards[i][0]) # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-    p0 = StandardHighHand.from_game(p0_holes, board) # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-    p1 = StandardHighHand.from_game(p1_holes, board) # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-
-    # test_logger.log(f"p0: {p0}")
-    # test_logger.log(f"p1: {p1}")
-    # test_logger.log(f"p0 won? {p0 > p1}")
-    # test_logger.log(state.stacks[0] - state.starting_stacks[0])
-    # test_logger.log('')
-
-    if p0 == p1: # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
-        return 0 # NO NEED FOR THIS ANYMORE SINCE EVERYTHINGS ALREADY PAID OUT
     return state.stacks[0] - state.starting_stacks[0]
-    # return 1 + pf_history.count('raise') if p0 > p1 else -1 * (1 + pf_history.count('raise'))
 
 # ── Info-set node ──────────────────────────────────────────────────────────────
 
@@ -84,7 +60,7 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
     """
 
     if is_terminal(state):
-        payoff = payoff_p0(state, pf_history)
+        payoff = payoff_p0(state)
         return payoff if traverser == 0 else -payoff
 
     bucket = bucketer.preflop_bucket(state, pf_history)
@@ -135,11 +111,11 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
         for action in actions:
             node.regret_sum[action] = max(node.regret_sum[action] + utils[action] - node_util, 0)
 
-        test2_logger.log(bucket)
-        test2_logger.log(f'utils: {utils}')
-        test2_logger.log(f'times_visited: {node.times_visited}')
-        test2_logger.log(f"regretsum: {node.regret_sum}")
-        test2_logger.log('------------------------')
+        debug_logger.log(bucket)
+        debug_logger.log(f'utils: {utils}')
+        debug_logger.log(f'times_visited: {node.times_visited}')
+        debug_logger.log(f"regretsum: {node.regret_sum}")
+        debug_logger.log('------------------------')
 
         return node_util
 
@@ -152,12 +128,6 @@ def mccfr(state: State, traverser: int, pf_history: list[str]):
             actions = ['fold', 'check/call']
         strat = node.get_strategy(actions)
         probs = [strat[action] for action in actions]
-
-        test_logger.log(probs)
-        test_logger.log(f"Opponent/cur player: {1 - traverser}")
-        test_logger.log(bucket)
-        test_logger.log('')
-
         sampled_action = random.choices(actions, weights=probs)[0]
         if actions.index(sampled_action) == 0:
             next_state.fold()
@@ -190,7 +160,7 @@ def train(iters=100_000):
         v0_state = create_state()
         v0 = play_hand(v0_state, traverser=count % 2)
 
-    print(f"\nTraining complete ({iters:,} iterations, {2*iters:,} traversals)")
+    print(f"\nTraining complete ({iters:,} iterations)")
 
 def play_hand(state, traverser):
     pf_history = list()
@@ -223,16 +193,24 @@ def create_state() -> State:
 
 
 if __name__ == '__main__':
-    logger = Logger(output_path="holdem_log.txt")
-    test_logger = Logger(output_path="test.txt")
-    test2_logger = Logger(output_path="test2.txt")
-    test2_logger.clear_logs()
-    test_logger.clear_logs()
-    logger.clear_logs() # clears logs so new hand can be logged
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('debug_logs', exist_ok=True)
+    os.makedirs('nodesets', exist_ok=True)
+
+    logger = Logger(output_path=f"logs/{timestamp}.txt")
+    debug_logger = Logger(output_path=f"debug_logs/{timestamp}.txt")
 
     random.seed() 
-    train(50_000)
-    
+    train(100_000)
+
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    with open(f'nodesets/nodes_{timestamp}.pkl', 'wb') as f:
+        pickle.dump(nodes, f)
+
     for key, value in nodes.items():
         logger.log(key)
         sum = 0
