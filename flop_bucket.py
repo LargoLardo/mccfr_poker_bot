@@ -16,32 +16,30 @@ def compute_ehs(
     Equity vs random opponent hand, Monte Carlo rollout to river.
     Works for flop (3 board cards), turn (4), or river (5).
     """
-    p0_holes = ''.join(repr(c) for c in state.hole_cards[0] if c is not None)
-    p1_holes = ''.join(repr(c) for c in state.hole_cards[1] if c is not None)
+    # HERO IS JUST CONSIDERED WHOEVER IS ACTING AT THE MOMENT, NO CONSIDERATION FOR WHO IS AGENT/TRAVERSER
+    hero_holes = ''.join(repr(c) for c in state.hole_cards[state.actor_index] if c is not None)
+    vil_holes = ''.join(repr(c) for c in state.hole_cards[1-state.actor_index] if c is not None)
     board = ''
     for card in state.board_cards: 
         board += repr(card[0])
-    p0 = StandardHighHand.from_game(p0_holes, board)
-    p1 = StandardHighHand.from_game(p1_holes, board)
 
-    known = hole + board
     deck = state.deck_cards.copy()
     cards_to_deal = 5 - int(len(board) / 2) # how many board cards remain
     wins = ties = 0
 
     for _ in range(n_samples):
-        sample = random.sample(deck, 2 + cards_to_deal)
-        opp_hole = sample[:2]
-        runout = board + sample[2:] # full 5-card board
+        sample = random.sample(deck, cards_to_deal)
+        sample = [repr(card) for card in sample]
+        runout = board + ''.join(sample) # full 5-card board
 
-        my_score = evaluate_7(hole + runout)
-        opp_score = evaluate_7(opp_hole + runout)
+        hero_hand = StandardHighHand.from_game(hero_holes, runout)
+        vil_hand = StandardHighHand.from_game(vil_holes, runout)
 
-        if my_score > opp_score:
+        if hero_hand > vil_hand:
             wins += 1
-        elif my_score == opp_score:
+        elif hero_hand == vil_hand:
             ties += 1
-
+    print(board)
     return (wins + 0.5 * ties) / n_samples
 
 
