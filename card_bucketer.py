@@ -1,99 +1,97 @@
 import random
 from collections import Counter
 from pokerkit import Card, State, StandardHighHand, Rank
+from treys import Card as TreysCard, Evaluator
 
-# ── Equity (EHS) ──────────────────────────────────────────────────────────────
+# ── Equity (EHS) and Potential ──────────────────────────────────────────────────────────────
 
-def compute_ehs(
-    state: State,
-    n_samples: int = 1000
-) -> float:
-    """
-    Equity vs random opponent hand, Monte Carlo rollout to river.
-    Works for flop (3 board cards), turn (4), or river (5).
-    """
-    # HERO IS JUST CONSIDERED WHOEVER IS ACTING AT THE MOMENT, NO CONSIDERATION FOR WHO IS AGENT/TRAVERSER
-    hero_holes = ''.join(repr(c) for c in state.hole_cards[state.actor_index] if c is not None)
-    board = ''
-    for card in state.board_cards:
-        board += repr(card[0])
+_evaluator = Evaluator()
+_ehs_cache = {}
+_pot_cache = {}
 
-    deck = state.deck_cards.copy()
-    cards_to_deal = 5 - int(len(board) / 2) # how many board cards remain
+def _to_treys(card_str: str):
+    """Convert pokerkit repr like 'Ah' to treys int. e.g. 'Ah' -> treys card int"""
+    return TreysCard.new(card_str[0] + card_str[1].lower())
+
+def compute_ehs(state: State, n_samples: int = 100) -> float:
+    hero_cards  = tuple(_to_treys(repr(c)) for c in state.hole_cards[state.actor_index] if c is not None)
+    board_cards = tuple(_to_treys(repr(card[0])) for card in state.board_cards)
+
+    # Cache in case of repeat board
+    key   = (hero_cards, board_cards)
+    if key in _ehs_cache:
+        return _ehs_cache[key]
+
+    deck_strs   = [repr(c) for c in state.deck_cards]
+    cards_to_deal = 5 - len(board_cards)
     wins = ties = 0
 
     for _ in range(n_samples):
-        sample = random.sample(deck, 2 + cards_to_deal)
-        sample = [repr(card) for card in sample]
-        vil_holes = sample.pop(0) + sample.pop(0)
-        runout = board + ''.join(sample) # full 5-card board
+        sample     = random.sample(deck_strs, 2 + cards_to_deal)
+        vil_cards  = tuple(_to_treys(s) for s in sample[:2])
+        runout     = board_cards + tuple(_to_treys(s) for s in sample[2:])
 
-        hero_hand = StandardHighHand.from_game(hero_holes, runout)
-        vil_hand = StandardHighHand.from_game(vil_holes, runout)
+        hero_score = _evaluator.evaluate(runout, hero_cards)
+        vil_score  = _evaluator.evaluate(runout, vil_cards)
 
-        if hero_hand > vil_hand:
+        if hero_score < vil_score:    # lower = better in treys
             wins += 1
-        elif hero_hand == vil_hand:
+        elif hero_score == vil_score:
             ties += 1
 
-    return (wins + 0.5 * ties) / n_samples
+    result = (wins + 0.5 * ties) / n_samples
+
+    _ehs_cache[key] = result
+    return result
 
 
-# ── Potential (PPOT / NPOT) ────────────────────────────────────────────────────
+def compute_potential(state: State, n_samples: int = 100) -> tuple[float, float]:
+    hero_cards  = tuple(_to_treys(repr(c)) for c in state.hole_cards[state.actor_index] if c is not None)
+    board_cards = tuple(_to_treys(repr(card[0])) for card in state.board_cards)
 
-def compute_potential(
-    state: State,
-    n_samples: int = 1000
-) -> tuple[float, float]:
-    """
-    PPOT: P(behind now, ahead at river)
-    NPOT: P(ahead now, behind at river)
+    # Cache in case of repeat board
+    key   = (hero_cards, board_cards)
+    if key in _pot_cache:
+        return _pot_cache[key]
 
-    Only meaningful on flop and turn (not river — no cards left).
-    For flop: samples one turn card then one river card.
-    For turn: samples one river card.
-    """
-    hero_holes = ''.join(repr(c) for c in state.hole_cards[state.actor_index] if c is not None)
-    board = ''
-    for card in state.board_cards:
-        board += repr(card[0])
-
-    deck = state.deck_cards.copy()
-    cards_to_deal = 5 - int(len(board) / 2) # how many board cards remain
+    deck_strs   = [repr(c) for c in state.deck_cards]
+    cards_to_deal = 5 - len(board_cards)
 
     ahead_now_behind_later = 0
     behind_now_ahead_later = 0
-    ahead_now_total = 0
+    ahead_now_total  = 0
     behind_now_total = 0
 
     for _ in range(n_samples):
-        sample = random.sample(deck, 2 + cards_to_deal)
-        sample = [repr(card) for card in sample]
-        vil_holes = sample.pop(0) + sample.pop(0)
-        runout = board + ''.join(sample) # full 5-card board
+        sample    = random.sample(deck_strs, 2 + cards_to_deal)
+        vil_cards = tuple(_to_treys(s) for s in sample[:2])
+        runout    = board_cards + tuple(_to_treys(s) for s in sample[2:])
 
-        hero_now = StandardHighHand.from_game(hero_holes, board) # current street equity proxy
-        vil_now = StandardHighHand.from_game(vil_holes, board)
+        hero_now = _evaluator.evaluate(board_cards, hero_cards)
+        vil_now  = _evaluator.evaluate(board_cards, vil_cards)
 
-        hero_final= StandardHighHand.from_game(hero_holes, runout)
-        vil_final = StandardHighHand.from_game(vil_holes, runout)
+        hero_final = _evaluator.evaluate(runout, hero_cards)
+        vil_final  = _evaluator.evaluate(runout, vil_cards)
 
-        currently_ahead = hero_now > vil_now
-        currently_behind = hero_now < vil_now
+        currently_ahead  = hero_now < vil_now   # lower = better
+        currently_behind = hero_now > vil_now
 
         if currently_ahead:
             ahead_now_total += 1
-            if hero_final < vil_final:
+            if hero_final > vil_final:          # was ahead, now behind
                 ahead_now_behind_later += 1
 
         if currently_behind:
             behind_now_total += 1
-            if hero_final > vil_final:
+            if hero_final < vil_final:          # was behind, now ahead
                 behind_now_ahead_later += 1
 
     ppot = behind_now_ahead_later / behind_now_total if behind_now_total > 0 else 0.0
-    npot = ahead_now_behind_later / ahead_now_total if ahead_now_total > 0 else 0.0
-    return ppot, npot
+    npot = ahead_now_behind_later / ahead_now_total  if ahead_now_total  > 0 else 0.0
+    result = ppot, npot
+    
+    _pot_cache[key] = result
+    return result
 
 
 def compute_ehs2(state: State, n_samples=1000) -> float: 
@@ -279,6 +277,7 @@ def flop_card_bucket(
     n_samples: int = 500
 ) -> tuple:
     assert len(state.board_cards) == 3
+
     ehs = compute_ehs(state, n_samples)
     ppot, npot = compute_potential(state, n_samples)
 
@@ -288,13 +287,15 @@ def flop_card_bucket(
     flush_texture = board_flush_texture(state)
     board_paired = board_is_paired(state)
 
-    return (
+    result = (
         ehs_bucket,
         ppot_bucket,
         npot_bucket,
         flush_texture,
         board_paired
     )
+
+    return result
 
 
 def turn_card_bucket(
@@ -315,7 +316,7 @@ def turn_card_bucket(
     flush_draw_completed_bucket = flush_draw_completed(flop, board)
     straight_draw_completed_bucket = straight_draw_completed(flop, board)
     
-    return (
+    result = (
         ehs_bucket,
         ppot_bucket,
         npot_bucket,
@@ -325,12 +326,15 @@ def turn_card_bucket(
         straight_draw_completed_bucket
     )
 
+    return result
+
 
 def river_card_bucket(
     state: State,
     n_samples: int = 500
 ) -> tuple:
     assert len(state.board_cards) == 5
+
     board = [card[0] for card in state.board_cards]
     turn_board = [state.board_cards[i][0] for i in range(4)]
     ehs = compute_ehs(state, n_samples) # pure equity, no potential
@@ -340,9 +344,11 @@ def river_card_bucket(
     straight_draw_completed_bucket = straight_draw_completed(turn_board, board)
     board_paired = board_is_paired(state)
 
-    return (
+    result = (
         ehs_bucket,
         flush_draw_completed_bucket,
         straight_draw_completed_bucket,
         board_paired
     )
+
+    return result

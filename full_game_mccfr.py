@@ -3,11 +3,12 @@ import os
 import pickle
 from datetime import datetime
 from tqdm import tqdm
-from copy import deepcopy
 from pokerkit import Automation, Mode, NoLimitTexasHoldem, State, StandardHighHand
 from collections import defaultdict
 from logger import Logger
 from bucketer import Bucketer
+
+# analytics imports
 import cProfile
 import pstats
 
@@ -51,14 +52,10 @@ class Node:
 # ── External sampling MCCFR ────────────────────────────────────────────────────
 
 nodes = {}
-nodes_visited = 0
 
 def mccfr(state: State, traverser: int, histories: list[list[str]]):
     """     
     """
-    global nodes_visited
-
-    nodes_visited += 1
 
     if is_terminal(state):
         payoff = payoff_p0(state)
@@ -92,7 +89,7 @@ def mccfr(state: State, traverser: int, histories: list[list[str]]):
 
         cant_raise = False
         for action in actions:
-            next_state = deepcopy(state)
+            next_state = pickle.loads(pickle.dumps(state))
             next_history = history.copy()
             match action:
                 case 'fold':
@@ -134,7 +131,7 @@ def mccfr(state: State, traverser: int, histories: list[list[str]]):
 
     else:
         # ── Opponent: SAMPLE a single action ─────────────────────────────────
-        next_state = deepcopy(state)
+        next_state = pickle.loads(pickle.dumps(state))
         next_history = history.copy()
         amount = get_rand_raise_size(state, bucket)
         if not next_state.can_complete_bet_or_raise_to(amount):
@@ -189,12 +186,9 @@ def get_rand_raise_size(state: State, bucket: tuple) -> float:
 
 def train(iters=100_000):
     """Two traversals per iteration (alternate which player is traverser)."""
-    global nodes_visited
     for count in tqdm(range(iters)):
         v0_state = create_state()
         play_hand(v0_state, traverser=count % 2)
-        print("\nNodes visited: ", nodes_visited)
-        nodes_visited = 0
 
     print(f"\nTraining complete ({iters:,} iterations)")
 
@@ -242,21 +236,21 @@ if __name__ == '__main__':
     debug_logger = Logger(output_path=f"debug_logs/{timestamp}.txt")
 
     random.seed() 
-    cProfile.run('train(2)', 'profile_output')
+    # cProfile.run('train(100)', 'profile_output')
 
-    stats = pstats.Stats('profile_output')
-    stats.sort_stats('cumulative')
-    stats.print_stats(20)  # top 20 slowest functions
-    # train(10_000)
+    # stats = pstats.Stats('profile_output')
+    # stats.sort_stats('cumulative')
+    # stats.print_stats(20)  # top 20 slowest functions
+    train(10_000)
 
-    # now = datetime.now()
-    # timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
-    # with open(f'nodesets/nodes_{timestamp}.pkl', 'wb') as f:
-    #     pickle.dump(nodes, f)
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    with open(f'nodesets/nodes_{timestamp}.pkl', 'wb') as f:
+        pickle.dump(nodes, f)
 
-    # for key, value in nodes.items():
-    #     logger.log(key)
-    #     node_sum = sum(value.strategy_sum.values())
-    #     for k, v in value.strategy_sum.items():
-    #         logger.log(f"{k}: {v/node_sum}")
-    #     logger.log('--------------------------------')
+    for key, value in nodes.items():
+        logger.log(key)
+        node_sum = sum(value.strategy_sum.values())
+        for k, v in value.strategy_sum.items():
+            logger.log(f"{k}: {v/node_sum}")
+        logger.log('--------------------------------')

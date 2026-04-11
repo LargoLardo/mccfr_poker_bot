@@ -3,7 +3,7 @@ from card_bucketer import preflop_card_bucket, flop_card_bucket, turn_card_bucke
 
 class Bucketer:
     def __init__(self) -> None:
-        pass
+        self.samples = 100
 
     def preflop_bucket(self, state: State, history: list) -> tuple:
 
@@ -91,7 +91,7 @@ class Bucketer:
 
         actor = state.actor_index
         
-        hand_bucket = flop_card_bucket(state, n_samples=500)
+        hand_bucket = flop_card_bucket(state, n_samples=self.samples)
 
         position_bucket = "SB" if actor == 0 else "BB"
         
@@ -125,7 +125,7 @@ class Bucketer:
 
         actor = state.actor_index
         
-        hand_bucket = turn_card_bucket(state, n_samples=500)
+        hand_bucket = turn_card_bucket(state, n_samples=self.samples)
 
         position_bucket = "SB" if actor == 0 else "BB"
         
@@ -192,7 +192,7 @@ class Bucketer:
 
         actor = state.actor_index
         
-        hand_bucket = river_card_bucket(state, n_samples=500)
+        hand_bucket = river_card_bucket(state, n_samples=self.samples)
 
         position_bucket = "SB" if actor == 0 else "BB"
         
