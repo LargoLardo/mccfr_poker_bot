@@ -35,15 +35,15 @@ def compute_ehs(
             wins += 1
         elif hero_hand == vil_hand:
             ties += 1
-    print(board)
+
     return (wins + 0.5 * ties) / n_samples
 
 
 # ── Potential (PPOT / NPOT) ────────────────────────────────────────────────────
 
 def compute_potential(
-state: State,
-n_samples: int = 1000
+    state: State,
+    n_samples: int = 1000
 ) -> tuple[float, float]:
     """
     PPOT: P(behind now, ahead at river)
@@ -188,10 +188,96 @@ def potential_bucket(ppot: float, n_bins: int = 4) -> int:
 
 # ── Street-level bucket builders ──────────────────────────────────────────────
 
+def preflop_card_bucket(
+    state: State
+) -> str:
+    actor = state.actor_index
+    hole_cards = str(state.hole_cards[actor]).strip('[]').split(', ')
+
+    # ---------- card parsing ----------
+    def rank_value(card):
+        r = card[0]
+        mapping = {
+            "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+            "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12,
+            "K": 13, "A": 14
+        }
+        return mapping[r]
+
+    def suit(card):
+        return card[1]
+
+    r1 = rank_value(hole_cards[0])
+    r2 = rank_value(hole_cards[1])
+    s1 = suit(hole_cards[0])
+    s2 = suit(hole_cards[1])
+
+    high = max(r1, r2)
+    low = min(r1, r2)
+    suited = (s1 == s2)
+    pair = (r1 == r2)
+    gap = high - low
+
+    # ---------- hand bucket ----------
+    if pair:
+        if high >= 11:  # JJ+
+            hand_bucket = "premium_pairs"
+        elif 8 <= high <= 10:  # 88-TT
+            hand_bucket = "medium_pairs"
+        else:  # 22-77
+            hand_bucket = "small_pairs"
+
+    elif suited and high == 14 and 10 <= low <= 13:
+        # ATs, AJs, AQs, AKs
+        hand_bucket = "premium_suited_aces"
+
+    elif high == 14 and suited and 2 <= low <= 9:
+        # A2s-A9s
+        hand_bucket = "weak_suited_aces"
+
+    elif high == 14 and not suited and low >= 12:
+        # AKo, AQo
+        hand_bucket = "premium_offsuit_aces"
+
+    elif suited and high >= 11 and low >= 10:
+        # KQs, KJs, QJs, JTs, AQs, AKs etc.
+        # Since suited aces already handled above, this is mostly KQs-JTs type hands
+        hand_bucket = "premium_suited_broadways"
+
+    elif not suited and high >= 11 and low >= 10:
+        # KQo / KJo / QJo / JTo / AQo / AJo / etc.
+        if (high == 13 and low == 12):
+            hand_bucket = "premium_offsuit_broadways"  # KQo
+        elif (high == 14 and low >= 11):
+            # AKo/AQo handled above, AJo falls here if you want it weaker
+            hand_bucket = "weak_offsuit_broadways"
+        elif high == 13 and low == 11:
+            hand_bucket = "weak_offsuit_broadways"  # KJo
+        elif high == 12 and low == 11:
+            hand_bucket = "weak_offsuit_broadways"  # QJo
+        elif high == 11 and low == 10:
+            hand_bucket = "weak_offsuit_broadways"  # JTo
+        else:
+            hand_bucket = "trash_offsuit_hands"
+
+    elif suited and gap == 1 and high <= 13:
+        # suited connectors like 98s, T9s, 76s, KQs technically connector but already caught above
+        hand_bucket = "suited_connectors"
+
+    elif suited and gap == 2 and high <= 13:
+        # suited one-gappers like 97s, T8s, J9s
+        hand_bucket = "suited_gappers"
+
+    else:
+        hand_bucket = "trash_offsuit_hands"
+    
+    return hand_bucket
+
+
 def flop_card_bucket(
     state: State, # 3 cards
     n_samples: int = 500
-) -> dict:
+) -> tuple:
     assert len(state.board_cards) == 3
     ehs = compute_ehs(state, n_samples)
     ppot, npot = compute_potential(state, n_samples)
@@ -214,7 +300,7 @@ def flop_card_bucket(
 def turn_card_bucket(
     state: State,# first 3 cards (to detect draw completion)
     n_samples: int = 500
-) -> dict:
+) -> tuple:
     assert len(state.board_cards) == 4
     ehs = compute_ehs(state, n_samples)
     ppot, npot = compute_potential(state, n_samples)
@@ -243,7 +329,7 @@ def turn_card_bucket(
 def river_card_bucket(
     state: State,
     n_samples: int = 500
-) -> dict:
+) -> tuple:
     assert len(state.board_cards) == 5
     board = [card[0] for card in state.board_cards]
     turn_board = [state.board_cards[i][0] for i in range(4)]

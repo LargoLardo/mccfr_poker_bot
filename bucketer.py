@@ -129,8 +129,30 @@ class Bucketer:
 
         position_bucket = "SB" if actor == 0 else "BB"
         
-        raise_count = turn_history.count("raise")
-        raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
+        # raise_count = turn_history.count("raise")
+        # raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
+        if not turn_history:
+            history_bucket = "root"
+        elif len(turn_history) == 1:
+            first = turn_history[0]
+            if first == 'check/call':
+                history_bucket = "limped"
+            elif first == 'raise':
+                history_bucket = "open"
+            else:
+                history_bucket = "root"
+        elif len(turn_history) == 2:
+            if (turn_history[0] == 'raise') and (turn_history[1] == 'raise'):
+                history_bucket = "vs_3bet"
+            else:
+                history_bucket = "vs_open"
+        elif len(turn_history) == 3:
+            if (turn_history[0] == 'raise') and (turn_history[1] == 'raise') and (turn_history[2] == 'raise'):
+                history_bucket = "vs_4bet"
+            else:
+                history_bucket = "vs_3bet"
+        else:
+            history_bucket = "vs_4bet"
         
         to_call = max(state.bets[0], state.bets[1]) - min(state.bets[0], state.bets[1])
         pot_size = state.total_pot_amount
@@ -160,7 +182,7 @@ class Bucketer:
         return (
             hand_bucket,
             position_bucket,
-            raises_this_street_bucket,
+            history_bucket,
             size_bucket,
             spr_bucket,
             prev_street_raise_bucket
@@ -174,8 +196,30 @@ class Bucketer:
 
         position_bucket = "SB" if actor == 0 else "BB"
         
-        raise_count = river_history.count("raise")
-        raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
+        # raise_count = river_history.count("raise")
+        # raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
+        if not river_history:
+            history_bucket = "root"
+        elif len(river_history) == 1:
+            first = river_history[0]
+            if first == 'check/call':
+                history_bucket = "limped"
+            elif first == 'raise':
+                history_bucket = "open"
+            else:
+                history_bucket = "root"
+        elif len(river_history) == 2:
+            if (river_history[0] == 'raise') and (river_history[1] == 'raise'):
+                history_bucket = "vs_3bet"
+            else:
+                history_bucket = "vs_open"
+        elif len(river_history) == 3:
+            if (river_history[0] == 'raise') and (river_history[1] == 'raise') and (river_history[2] == 'raise'):
+                history_bucket = "vs_4bet"
+            else:
+                history_bucket = "vs_3bet"
+        else:
+            history_bucket = "vs_4bet"
         
         to_call = max(state.bets[0], state.bets[1]) - min(state.bets[0], state.bets[1])
         pot_size = state.total_pot_amount
@@ -205,7 +249,7 @@ class Bucketer:
         return (
             hand_bucket,
             position_bucket,
-            raises_this_street_bucket,
+            history_bucket,
             size_bucket,
             spr_bucket,
             prev_street_raise_bucket
