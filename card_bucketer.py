@@ -281,9 +281,12 @@ def flop_card_bucket(
     ehs = compute_ehs(state, n_samples)
     ppot, npot = compute_potential(state, n_samples)
 
+    # ehs2_bucket = equity_bucket(compute_ehs2(state, 200), 16)
+
     ehs_bucket = equity_bucket(ehs)
     ppot_bucket = potential_bucket(ppot)
     npot_bucket = potential_bucket(npot)
+
     flush_texture = board_flush_texture(state)
     board_paired = board_is_paired(state)
 
@@ -291,6 +294,7 @@ def flop_card_bucket(
         ehs_bucket,
         ppot_bucket,
         npot_bucket,
+        # ehs2_bucket,
         flush_texture,
         board_paired
     )
@@ -311,6 +315,9 @@ def turn_card_bucket(
     ehs_bucket = equity_bucket(ehs)
     ppot_bucket = potential_bucket(ppot)
     npot_bucket = potential_bucket(npot)
+
+    # ehs2_bucket = equity_bucket(compute_ehs2(state, 200), 16)
+
     flush_texture = board_flush_texture(state)
     board_paired = board_is_paired(state)
     flush_draw_completed_bucket = flush_draw_completed(flop, board)
@@ -320,6 +327,7 @@ def turn_card_bucket(
         ehs_bucket,
         ppot_bucket,
         npot_bucket,
+        # ehs2_bucket,
         flush_texture,
         board_paired,
         flush_draw_completed_bucket,
@@ -352,3 +360,15 @@ def river_card_bucket(
     )
 
     return result
+
+def exact_preflop_card_bucket(
+    state: State
+) -> str:
+    actor = state.actor_index
+    hole_cards = str(state.hole_cards[actor]).strip('[]').split(', ')
+    suited = 's' if Card.are_suited(''.join(hole_cards)) else 'o'
+    ranks = ''.join(sorted(hole_cards[0][0] + hole_cards[1][0]))
+    
+    hand_bucket = ranks + suited
+
+    return hand_bucket

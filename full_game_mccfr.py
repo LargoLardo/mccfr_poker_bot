@@ -4,7 +4,7 @@ import pickle
 import warnings
 from datetime import datetime
 from tqdm import tqdm
-from pokerkit import Automation, Mode, NoLimitTexasHoldem, State, StandardHighHand
+from pokerkit import Automation, Mode, NoLimitTexasHoldem, State
 from collections import defaultdict
 from logger import Logger
 from bucketer import Bucketer
@@ -84,34 +84,34 @@ def mccfr(state: State, traverser: int, histories: list[list[str]], nodes: dict,
     if bucket not in nodes:
         nodes[bucket] = Node()
     node  = nodes[bucket]
-    node.times_visited += 1
 
     if cur_actor == traverser:
         # ── Traversing player: explore every action ──────────────────────────
+        node.times_visited += 1
 
         utils = {}
 
         cant_raise = False
         for action in actions:
             next_state = pickle.loads(pickle.dumps(state))
-            next_history = history.copy()
+            next_histories = [h.copy() for h in histories]   # ← snapshot all streets
+            next_histories[street] = history.copy()
             match action:
                 case 'fold':
                     next_state.fold()
-                    next_history.append('fold')
+                    next_histories[street].append('fold')
                 case 'check/call':
                     next_state.check_or_call()
-                    next_history.append('check/call')
+                    next_histories[street].append('check/call')
                 case 'raise':
                     amount = get_rand_raise_size(state, bucket)
                     if next_state.can_complete_bet_or_raise_to(amount):
                         next_state.complete_bet_or_raise_to(amount)
-                        next_history.append('raise')
+                        next_histories[street].append('raise')
                     else:
                         cant_raise = True
-            if not cant_raise:
-                histories[street] = next_history
-                utils[action] = mccfr(next_state, traverser, histories, nodes, bucketer) 
+                        continue
+            utils[action] = mccfr(next_state, traverser, next_histories, nodes, bucketer) 
 
         if cant_raise:
             actions = ['fold', 'check/call']
@@ -123,7 +123,9 @@ def mccfr(state: State, traverser: int, histories: list[list[str]], nodes: dict,
         node_util = sum(strat[action] * utils[action] for action in actions)
         
         for action in actions:
-            node.regret_sum[action] = max(node.regret_sum[action] + utils[action] - node_util, 0)
+            node.regret_sum[action] += utils[action] - node_util
+            # CHANGE FROM CFR+ to CFR due to problems with parallel merging biasing convergence
+            # node.regret_sum[action] = max(node.regret_sum[action] + utils[action] - node_util, 0)
 
         # debug_logger.log(bucket)
         # debug_logger.log(f'utils: {utils}')
@@ -136,7 +138,8 @@ def mccfr(state: State, traverser: int, histories: list[list[str]], nodes: dict,
     else:
         # ── Opponent: SAMPLE a single action ─────────────────────────────────
         next_state = pickle.loads(pickle.dumps(state))
-        next_history = history.copy()
+        next_histories = [h.copy() for h in histories]   # ← snapshot all streets
+        next_histories[street] = history.copy()
         amount = get_rand_raise_size(state, bucket)
         if not next_state.can_complete_bet_or_raise_to(amount):
             actions = ['fold', 'check/call']
@@ -145,22 +148,20 @@ def mccfr(state: State, traverser: int, histories: list[list[str]], nodes: dict,
         sampled_action = random.choices(actions, weights=probs)[0]
         if actions.index(sampled_action) == 0:
             next_state.fold()
-            next_history.append('fold')
+            next_histories[street].append('fold')
         elif actions.index(sampled_action) == 1: 
             next_state.check_or_call()
-            next_history.append('check/call')
+            next_histories[street].append('check/call')
         elif actions.index(sampled_action) >= 2:
             next_state.complete_bet_or_raise_to(amount)
-            next_history.append('raise')
+            next_histories[street].append('raise')
 
         # debug_logger.log(bucket) 
         # debug_logger.log(f'(OPPONENT) times_visited: {node.times_visited}')
         # debug_logger.log(f"(OPPONENT) regretsum: {node.regret_sum}")
         # debug_logger.log('------------------------')
-        
-        histories[street] = next_history
 
-        return mccfr(next_state, traverser, histories, nodes, bucketer)
+        return mccfr(next_state, traverser, next_histories, nodes, bucketer)
 
 # -- Helper functions -------------------------------
 
@@ -229,6 +230,9 @@ def train(iters=100_000, n_workers=None, merge_every=100):
                 pbar.update(1)
                 pbar.set_postfix(nodes=len(nodes))  # shows how many info-sets discovered
 
+                with open(f'nodesets/fullgame_1m.pkl', 'wb') as f:
+                    pickle.dump(nodes, f)
+
     print(f"\nTraining complete ({iters:,} iterations)")
     return nodes
 
@@ -280,7 +284,7 @@ if __name__ == '__main__':
     # stats = pstats.Stats('profile_output')
     # stats.sort_stats('cumulative')
     # stats.print_stats(20)  # top 20 slowest functions
-    nodes = train(500_000, merge_every=100)
+    nodes = train(4_000_000, merge_every=100)
 
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
