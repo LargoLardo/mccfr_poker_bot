@@ -1,6 +1,6 @@
 from pokerkit import Automation, State, NoLimitTexasHoldem, Mode
-from bucketer import Bucketer
-from logger import Logger
+from utils.bucketer import Bucketer
+from utils.logger import Logger
 import random
 
 # ----------- HELPER FUNCTIONS ---------------------

@@ -6,8 +6,8 @@ from datetime import datetime
 from tqdm import tqdm
 from pokerkit import Automation, Mode, NoLimitTexasHoldem, State
 from collections import defaultdict
-from logger import Logger
-from bucketer import Bucketer
+from utils.logger import Logger
+from utils.bucketer import Bucketer
 from multiprocessing import Pool
 
 # analytics imports
@@ -232,7 +232,7 @@ def train(iters=100_000, n_workers=None, merge_every=1000):
 
                 chunks_done += batch
 
-                with open('nodesets/exact_pf_1m.pkl', 'wb') as f:
+                with open('nodesets/exact_pf_50m.pkl', 'wb') as f:
                     pickle.dump(nodes, f)
 
     print(f"\nTraining complete ({iters:,} iterations)")
@@ -259,7 +259,7 @@ def create_state() -> State:
         ),
         False,                 # ante trimming status
         0,                     # antes
-        (1, 2),                # blinds
+        (0.5, 1),                # blinds
         1,                     # min bet
         (100, 100),            # starting stacks
         2,                     # player count
@@ -284,7 +284,7 @@ if __name__ == '__main__':
     # stats = pstats.Stats('profile_output')
     # stats.sort_stats('cumulative')
     # stats.print_stats(20)  # top 20 slowest functions
-    nodes = train(5_000_000, merge_every=1000)
+    nodes = train(50_000_000, merge_every=1000)
 
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
