@@ -1,11 +1,18 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import plotly.graph_objects as go
 import pickle
 
 from pokerkit import Hand
-from exact_preflop_freqs import Node
+from pf_mccfr import Node
 
-ACTION = 'vs_4bet'
-PATH = r'C:\Users\ZhaoLo\poker\cfr_poker_bot\nodes_2026-04-17_01-21-59.pkl'
+ACTION = 'open'
+PATH = r'C:\Users\login\RANDOM_CODE\wpt_bot\nodesets\exact_preflop_10m.pkl'
 RANKS = "AKQJT98765432"
 rank_to_idx = {r: i for i, r in enumerate(RANKS)}
 
@@ -15,7 +22,7 @@ with open(PATH, "rb") as f:
     nodes = pickle.load(f)
 
 for bucket, node in nodes.items():
-    if bucket[3] == ACTION and '10.0' in bucket[4] and bucket[1] == 'SB':
+    if ACTION in bucket[3] and '2' in bucket[4]:
         hand = bucket[0]
         node_sum = sum(node.strategy_sum.values())
 

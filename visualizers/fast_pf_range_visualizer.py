@@ -1,9 +1,16 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import plotly.graph_objects as go
 import numpy as np
 import pickle
 
 from pokerkit import Hand
-from exact_preflop_freqs import Node
+from pf_mccfr import Node
 
 PATH = r'C:\Users\login\RANDOM_CODE\wpt_bot\nodesets\nodes_2026-04-16_21-49-33.pkl'
 RANKS = "AKQJT98765432"

@@ -1,8 +1,15 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import plotly.graph_objects as go
 import pickle
 
 from pokerkit import Hand
-from exact_preflop_freqs import Node
+from pf_mccfr import Node
 
 PATH = r'C:\Users\ZhaoLo\poker\cfr_poker_bot\nodesets\preflop_200k.pkl'
 RANKS = "AKQJT98765432"

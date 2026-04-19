@@ -311,7 +311,7 @@ if __name__ == '__main__':
     # stats = pstats.Stats('profile_output')
     # stats.sort_stats('cumulative')
     # stats.print_stats(20)  # top 20 slowest functions
-    nodes = train(1_000_000, merge_every=10)
+    nodes = train(10_000_000, merge_every=1000)
 
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")

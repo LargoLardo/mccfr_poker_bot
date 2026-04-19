@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from pf_mccfr import Node
 from utils.logger import Logger
 from datetime import datetime
@@ -7,8 +14,8 @@ import pickle
 import os
 import shutil
 
-PATH = r'nodes_2026-04-17_01-21-59.pkl'
-PATH_2 = r'C:\Users\ZhaoLo\poker\cfr_poker_bot\nodesets\preflop_200k.pkl'
+PATH = r'C:\Users\login\RANDOM_CODE\wpt_bot\nodesets\exact_preflop_10m.pkl'
+PATH_2 = r'C:\Users\login\RANDOM_CODE\wpt_bot\nodesets\preflop_200k.pkl'
 
 def safe_name(s):
     return str(s).replace("/", "_").replace("\\", "_").replace(":", "_")
@@ -59,11 +66,13 @@ for bucket, node in nodes.items():
         for k, v in node.regret_sum.items():
             f.write(f"{k} regret: {round(v)}\n")
 
-iters = 20_000
+iters = 10_000
 
 game_sum = 0
 for _ in tqdm(range(iters)):
+    # reward = play_hand.agent_vs_random(nodes, 1, game_logger)
     reward = play_hand.agent_vs_agent(nodes, nodes_2, 1, game_logger)
+    # reward = play_hand.full_agent_vs_random(nodes, 1, game_logger)
     game_sum += reward
 
 print("Average reward for agent v random:", game_sum / iters)

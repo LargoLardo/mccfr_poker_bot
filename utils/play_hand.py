@@ -221,8 +221,8 @@ def agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
         ),
         False,                 # ante trimming status
         0,                     # antes
-        (1, 2),                # blinds
-        2,                     # min bet
+        (0.5, 1),                # blinds
+        1,                     # min bet
         (100, 100),            # starting stacks
         2,                     # player count
         mode=Mode.CASH_GAME,
@@ -265,7 +265,7 @@ def agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
                 action_name = 'check/call'
                 print("Node only explored by opponent, has no weights.")
             if action_name == 'raise':
-                amount = max(state.bets) + state.total_pot_amount * 1/2 
+                amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
                     all_in_amt = state.stacks[state.actor_index]
                     min_bet = state.min_completion_betting_or_raising_to_amount
@@ -330,8 +330,8 @@ def full_agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
         ),
         False,                 # ante trimming status
         0,                     # antes
-        (1, 2),                # blinds
-        2,                     # min bet
+        (0.5, 1),                # blinds
+        1,                     # min bet
         (100, 100),            # starting stacks
         2,                     # player count
         mode=Mode.CASH_GAME,
@@ -388,7 +388,7 @@ def full_agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
             else:
                 action_name = random.choices(actions, weights=probs)[0]
             if action_name == 'raise':
-                amount = max(state.bets) + state.total_pot_amount * 1/2 
+                amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
                     all_in_amt = state.stacks[state.actor_index]
                     min_bet = state.min_completion_betting_or_raising_to_amount
@@ -453,8 +453,8 @@ def agent_vs_agent(agent: dict, agent_2: dict, agent_pos: int, logger: Logger) -
         ),
         False,                 # ante trimming status
         0,                     # antes
-        (1, 2),                # blinds
-        2,                     # min bet
+        (0.5, 1),                # blinds
+        1,                     # min bet
         (100, 100),            # starting stacks
         2,                     # player count
         mode=Mode.CASH_GAME,
@@ -500,7 +500,7 @@ def agent_vs_agent(agent: dict, agent_2: dict, agent_pos: int, logger: Logger) -
                 action_name = 'check/call'
                 print("Node only explored by opponent, has no weights.")
             if action_name == 'raise':
-                amount = max(state.bets) + state.total_pot_amount * 1/2 
+                amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
                     all_in_amt = state.stacks[state.actor_index]
                     min_bet = state.min_completion_betting_or_raising_to_amount
