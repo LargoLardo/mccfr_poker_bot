@@ -1,0 +1,12 @@
+- Fix agent folding when it has no reason to. 
+    - Folding first to act postflop.
+    - Folding when it checks to it.
+- Add more heuristics, especially for 4bets where it doesn't have that many iterations.
+    - Raise premiums and fold other trash for example, can combine different agents for this.
+- Spread out hole card distributions during training.
+    - Make suited cards and pocket pairs equally likely to show up during training.
+    - Run through each of the 13x13 combinations preflop evenly.
+- Make a proper frontend board to interact with the agent easier.
+    - Clean up code for readability.
+- Check feasability of using EHS2 features instead of PPOT and NPOT.
+- Add more raise size options for the agent. 

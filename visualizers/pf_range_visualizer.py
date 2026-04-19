@@ -11,8 +11,8 @@ import pickle
 from pokerkit import Hand
 from pf_mccfr import Node
 
-ACTION = 'open'
-PATH = r'C:\Users\login\RANDOM_CODE\wpt_bot\nodesets\exact_preflop_10m.pkl'
+ACTION = '4bet'
+PATH = r'C:\Users\login\RANDOM_CODE\wpt_bot\FULLGAME_10m_iters.pkl'
 RANKS = "AKQJT98765432"
 rank_to_idx = {r: i for i, r in enumerate(RANKS)}
 
@@ -22,7 +22,7 @@ with open(PATH, "rb") as f:
     nodes = pickle.load(f)
 
 for bucket, node in nodes.items():
-    if ACTION in bucket[3] and '2' in bucket[4]:
+    if ACTION in bucket[3]:
         hand = bucket[0]
         node_sum = sum(node.strategy_sum.values())
 
