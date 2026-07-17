@@ -29,3 +29,10 @@ Key libraries: `pokerkit`, `numpy`, `torch`, `tqdm`, `networkx`.
 Training scripts load and save pickle node dictionaries; default paths are configured inside each script. Large node sets and logs are kept **out of Git** (see below).
 
 Directory `nodesets/` is created locally for trained `.pkl` files referenced by the agents.
+
+GTO solver solution for Preflop Open:
+<img width="1662" height="1326" alt="image" src="https://github.com/user-attachments/assets/95acaf64-fece-4b42-a582-ac05a70b3279" />
+
+My solver solution for Preflop Open after 10 million iterations and approximately 8 hours of training:
+<img width="1372" height="1245" alt="image" src="https://github.com/user-attachments/assets/cc56bab4-1349-4b92-acd2-f55b8a789f14" />
+
