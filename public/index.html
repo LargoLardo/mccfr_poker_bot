@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071913" />
+    <meta name="description" content="Play heads-up hold'em against a 10-million-iteration MCCFR poker agent." />
+    <title>Lard Plays Poker</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Lard Plays Poker home">
+        <span class="brand-mark">LP</span>
+        <span><strong>Lard plays poker</strong><small>MCCFR · 10M iterations</small></span>
+      </a>
+      <div class="top-actions">
+        <span id="modelStatus" class="status"><i></i> Loading strategy</span>
+        <button id="newHandTop" class="button ghost">New hand</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="table-shell" aria-label="Heads-up poker table">
+        <div class="felt">
+          <div class="seat opponent-seat">
+            <div class="avatar agent">AI</div>
+            <div class="player-copy"><span>Lard</span><strong id="agentStack">100.0 BB</strong></div>
+            <span id="agentPosition" class="position">BB</span>
+            <div id="agentCards" class="hole-cards" aria-label="Agent cards"></div>
+          </div>
+
+          <div id="agentBet" class="bet agent-bet hidden"><span class="chip"></span><strong>0</strong></div>
+
+          <div class="center-table">
+            <div class="pot-label">POT <strong id="pot">1.5 BB</strong></div>
+            <div id="board" class="board" aria-label="Community cards"></div>
+            <div id="message" class="message" role="status">Loading the strategy…</div>
+          </div>
+
+          <div id="userBet" class="bet user-bet hidden"><span class="chip"></span><strong>0</strong></div>
+
+          <div class="seat user-seat">
+            <div class="avatar you">YOU</div>
+            <div class="player-copy"><span>You</span><strong id="userStack">100.0 BB</strong></div>
+            <span id="userPosition" class="position dealer">SB</span>
+            <div id="userCards" class="hole-cards" aria-label="Your cards"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-panel">
+        <div class="hand-meta">
+          <div><span>Street</span><strong id="street">Preflop</strong></div>
+          <div><span>To call</span><strong id="toCall">0.5 BB</strong></div>
+          <div><span>Last action</span><strong id="lastAction">Blinds posted</strong></div>
+        </div>
+
+        <div id="actions" class="actions">
+          <button id="foldButton" class="action fold">Fold <kbd>F</kbd></button>
+          <button id="callButton" class="action call">Call 0.5 <kbd>C</kbd></button>
+          <div class="raise-control">
+            <div class="raise-row">
+              <span>Raise to</span><output id="raiseOutput">3 BB</output>
+            </div>
+            <input id="raiseSlider" type="range" min="2" max="100" step="0.5" value="3" aria-label="Raise amount" />
+            <div class="sizing-buttons">
+              <button data-size="0.5">½ pot</button><button data-size="0.75">¾ pot</button><button data-size="1">Pot</button><button data-size="allin">All-in</button>
+            </div>
+            <button id="raiseButton" class="action raise">Raise <kbd>R</kbd></button>
+          </div>
+        </div>
+
+        <div id="finishedActions" class="finished-actions hidden">
+          <button id="newHandButton" class="button primary">Deal next hand</button>
+          <span id="resultDetail"></span>
+        </div>
+      </section>
+
+      <details class="about">
+        <summary>How does the agent play?</summary>
+        <p>Preflop decisions come from the included 10-million-iteration MCCFR strategy. Sparse nodes are blended with poker priors; postflop decisions use sampled equity and board-aware aggression. Checking is always preferred over a meaningless fold.</p>
+      </details>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

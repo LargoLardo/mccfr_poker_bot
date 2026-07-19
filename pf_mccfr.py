@@ -1,7 +1,6 @@
 import random
 import os
 import pickle
-import warnings
 from datetime import datetime
 from tqdm import tqdm
 from pokerkit import Automation, Mode, NoLimitTexasHoldem, State
@@ -15,12 +14,6 @@ import cProfile
 import pstats
 
 # sys.setrecursionlimit(10000)
-
-warnings.filterwarnings(
-    "ignore",
-    message="There is no reason for this player to fold.",
-    category=UserWarning,
-)
 
 def is_terminal(state: State) -> bool:
     return state.actor_index is None or state.street_index > 0
@@ -54,7 +47,9 @@ def mccfr(state: State, traverser: int, pf_history: list[str], base_nodes: dict,
 
     bucket = bucketer.exact_preflop_bucket(state, pf_history)
     cur_actor = state.actor_index
-    actions = ['fold', 'check/call', 'raise']
+    actions = ['check/call', 'raise']
+    if state.bets[cur_actor] < max(state.bets) and state.can_fold():
+        actions.insert(0, 'fold')
 
     base_node = base_nodes.get(bucket)
 
@@ -121,7 +116,7 @@ def mccfr(state: State, traverser: int, pf_history: list[str], base_nodes: dict,
 
         amount = get_rand_raise_size(state, bucket)
         if not next_state.can_complete_bet_or_raise_to(amount):
-            actions = ['fold', 'check/call']
+            actions = [a for a in actions if a != 'raise']
 
         strat = get_current_strategy(actions)
         sampled_action = random.choices(actions, weights=[strat[a] for a in actions])[0]

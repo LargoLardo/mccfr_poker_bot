@@ -1,0 +1,12 @@
+{
+  "name": "lard-plays-poker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx vercel dev",
+    "build": "node tools/verify-web.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

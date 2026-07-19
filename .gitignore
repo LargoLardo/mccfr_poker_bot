@@ -6,3 +6,5 @@ debug_logs
 loaded_nodes
 game_log.txt
 nodesets
+node_modules
+.vercel

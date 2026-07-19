@@ -1,6 +1,7 @@
 from pokerkit import Automation, State, NoLimitTexasHoldem, Mode
 from utils.bucketer import Bucketer
 from utils.logger import Logger
+from utils.agent_policy import choose_action
 import random
 
 # ----------- HELPER FUNCTIONS ---------------------
@@ -9,7 +10,7 @@ def random_action(state: State) -> tuple:
     actions = []
     probs = [0.2, 0.4, 0.4]
 
-    if state.can_fold():
+    if state.bets[state.actor_index] < max(state.bets) and state.can_fold():
         actions.append(("fold", lambda: state.fold()))
 
     if state.can_check_or_call():
@@ -252,18 +253,7 @@ def agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
             last_street = state.street_index
 
         if state.actor_index == agent_pos:
-            try:
-                node = agent[bucket]
-                node_sum = sum(node.strategy_sum.values())
-                actions = list(node.strategy_sum.keys())
-                probs = [node.strategy_sum[action] / node_sum for action in actions]
-            except KeyError:
-                actions = list()
-            if actions: #Sometimes the node has not been explored by the agent yet (or only by agent opponent which doesn't update the regretsum) meaning the actions haven't been updated/created
-                action_name = random.choices(actions, weights=probs)[0]
-            else:
-                action_name = 'check/call'
-                print("Node only explored by opponent, has no weights.")
+            action_name = choose_action(state, bucket, agent.get(bucket))
             if action_name == 'raise':
                 amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
@@ -370,23 +360,7 @@ def full_agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
             last_street = state.street_index
 
         if state.actor_index == agent_pos:
-            try:
-                node = agent[bucket]
-                node_sum = sum(node.strategy_sum.values())
-                actions = list(node.strategy_sum.keys())
-                probs = [node.strategy_sum[action] / node_sum for action in actions]
-            except KeyError:
-                actions = ['fold', 'check/call', 'raise']
-                if bucket[0][0] in [6,7]:
-                    probs = [0, 0.4, 0.6]
-                elif bucket[0][0] in [3,4,5]:
-                    probs = [0.3, 0.4, 0.3]
-                else:
-                    probs = [0.6, 0.4, 0]
-            if len(actions) <= 2 or len(probs) <= 2:
-                action_name = 'check/call'
-            else:
-                action_name = random.choices(actions, weights=probs)[0]
+            action_name = choose_action(state, bucket, agent.get(bucket))
             if action_name == 'raise':
                 amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
@@ -487,18 +461,7 @@ def agent_vs_agent(agent: dict, agent_2: dict, agent_pos: int, logger: Logger) -
             last_street = state.street_index
 
         if state.actor_index == agent_pos:
-            try:
-                node = agent[bucket]
-                node_sum = sum(node.strategy_sum.values())
-                actions = list(node.strategy_sum.keys())
-                probs = [node.strategy_sum[action] / node_sum for action in actions]
-            except KeyError:
-                actions = list()
-            if actions: #Sometimes the node has not been explored by the agent yet (or only by agent opponent which doesn't update the regretsum) meaning the actions haven't been updated/created
-                action_name = random.choices(actions, weights=probs)[0]
-            else:
-                action_name = 'check/call'
-                print("Node only explored by opponent, has no weights.")
+            action_name = choose_action(state, bucket, agent.get(bucket))
             if action_name == 'raise':
                 amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
@@ -520,18 +483,7 @@ def agent_vs_agent(agent: dict, agent_2: dict, agent_pos: int, logger: Logger) -
             else:
                 raise Exception
         else:
-            try:
-                node = agent_2[bucket]
-                node_sum = sum(node.strategy_sum.values())
-                actions = list(node.strategy_sum.keys())
-                probs = [node.strategy_sum[action] / node_sum for action in actions]
-            except KeyError:
-                actions = list()
-            if actions: #Sometimes the node has not been explored by the agent yet (or only by agent opponent which doesn't update the regretsum) meaning the actions haven't been updated/created
-                action_name = random.choices(actions, weights=probs)[0]
-            else:
-                action_name = 'check/call'
-                print("Agent 2: Node only explored by opponent, has no weights.")
+            action_name = choose_action(state, bucket, agent_2.get(bucket))
             if action_name == 'raise':
                 amount = max(state.bets) + state.total_pot_amount * 1/2 
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:
@@ -635,26 +587,7 @@ def full_agent_vs_player(agent: dict, agent_pos: int, logger: Logger) -> State:
             last_street = state.street_index
 
         if state.actor_index == agent_pos:
-            try:
-                node = agent[bucket]
-                node_sum = sum(node.strategy_sum.values())
-                actions = list(node.strategy_sum.keys())
-                probs = [node.strategy_sum[action] / node_sum for action in actions]
-            except KeyError:
-                try:
-                    actions = ['fold', 'check/call', 'raise']
-                    if bucket[0][0] in [6,7]:
-                        probs = [0, 0.4, 0.6]
-                    elif bucket[0][0] in [3,4,5]:
-                        probs = [0.3, 0.4, 0.3]
-                    else:
-                        probs = [0.6, 0.4, 0]
-                except KeyError:
-                    actions = list()
-            if len(actions) <= 2 or len(probs) <= 2:
-                action_name = 'check/call'
-            else:
-                action_name = random.choices(actions, weights=probs)[0]
+            action_name = choose_action(state, bucket, agent.get(bucket))
             if action_name == 'raise':
                 amount = max(state.bets) * 3
                 if 'vs_4bet' in bucket or amount > state.stacks[state.actor_index]:

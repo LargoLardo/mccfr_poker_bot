@@ -1,5 +1,18 @@
 # lard plays poker!
 
+## Play in the browser
+
+The repository includes a dependency-free web table backed by the bundled
+10-million-iteration preflop strategy. Run it locally with `npx vercel dev`, or
+import the repository into Vercel and deploy with the default settings. No
+environment variables, database, or build output directory are required.
+
+The compact browser model can be regenerated after training with:
+
+```bash
+python tools/export_web_model.py nodesets/your_model.pkl
+```
+
 No-limit Texas Hold’em bots trained with **external-sampling Monte Carlo CFR** (MCCFR), built on [pokerkit](https://github.com/uoft-cs/pokerkit). The main line trains **preflop-only** (`pf_mccfr.py`) and **full-street** (`full_game_mccfr.py`) abstractions using card bucketing and pickled node stores.
 
 ## Setup
