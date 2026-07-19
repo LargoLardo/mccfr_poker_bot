@@ -7,6 +7,10 @@ The repository includes a dependency-free web table backed by the bundled
 import the repository into Vercel and deploy with the default settings. No
 environment variables, database, or build output directory are required.
 
+`vercel.json` explicitly sets the Framework Preset to **Other** so Vercel does
+not mistake the repository's offline Python training scripts for a Python web
+application. It builds and publishes only the static `public/` directory.
+
 The compact browser model can be regenerated after training with:
 
 ```bash
