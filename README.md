@@ -3,7 +3,7 @@
 ## Play in the browser
 
 The repository includes a dependency-free web table backed by the bundled
-10-million-iteration preflop strategy. Gameplay and the filterable 13x13
+10-million-iteration full-game strategy. Gameplay and the filterable 13x13
 strategy explorer live on separate tabs, and the player's stack persists
 between completed hands in browser storage.
 
@@ -20,8 +20,10 @@ required.
 
 Open the browser developer console while playing to inspect the agent trace.
 Each hand logs an ISO timestamp and Lard's cards; each decision logs its
-interpreted spot, strategy source, normalized fold/call/raise frequencies, and
-sampled action. Agent actions use a 1.5-second delay so they are readable in the
+interpreted model bucket, node visits, strategy source, normalized
+fold/call/raise frequencies, and sampled action. Mature nodes (100+ visits) use
+the model unchanged; sparse nodes blend with heuristics in proportion to their
+missing visits. Agent actions use a 1.5-second delay so they are readable in the
 table UI.
 
 `vercel.json` explicitly sets the Framework Preset to **Other** so Vercel does

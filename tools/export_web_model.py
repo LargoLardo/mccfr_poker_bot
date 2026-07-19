@@ -1,4 +1,4 @@
-"""Export the compact preflop portion of a trained pickle for the web client."""
+"""Export trained preflop and postflop strategies for the web client."""
 
 from __future__ import annotations
 
@@ -19,6 +19,11 @@ def main() -> None:
     parser.add_argument("source", nargs="?", default=ROOT / "FULLGAME_10m_iters.pkl")
     parser.add_argument("output", nargs="?", default=ROOT / "public" / "preflop-model.json")
     parser.add_argument(
+        "--postflop-output",
+        default=ROOT / "public" / "postflop-model.json",
+        help="Output path for flop, turn, and river nodes.",
+    )
+    parser.add_argument(
         "--swap-legacy-positions",
         action="store_true",
         help="Correct node sets trained before PokerKit's heads-up seat mapping was fixed.",
@@ -30,10 +35,9 @@ def main() -> None:
     with open(args.source, "rb") as source:
         nodes = pickle.load(source)
 
-    exported = {}
+    preflop_export = {}
+    postflop_export = {}
     for bucket, node in nodes.items():
-        if not isinstance(bucket[0], str):
-            continue
         weights = [float(node.strategy_sum.get(action, 0.0)) for action in ("fold", "check/call", "raise")]
         total = sum(weights)
         if total <= 0:
@@ -41,12 +45,21 @@ def main() -> None:
         output_bucket = list(bucket)
         if args.swap_legacy_positions:
             output_bucket[1] = "SB" if bucket[1] == "BB" else "BB"
-        exported["|".join(map(str, output_bucket))] = [round(weight / total, 5) for weight in weights] + [node.times_visited]
+        strategy = [round(weight / total, 5) for weight in weights] + [node.times_visited]
+        if isinstance(bucket[0], str):
+            preflop_export["|".join(map(str, output_bucket))] = strategy
+        else:
+            # JSON.stringify produces this exact compact representation in JS.
+            postflop_export[json.dumps(output_bucket, separators=(",", ":"))] = strategy
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(exported, separators=(",", ":")), encoding="utf-8")
-    print(f"Exported {len(exported):,} preflop nodes to {output}")
+    output.write_text(json.dumps(preflop_export, separators=(",", ":")), encoding="utf-8")
+    postflop_output = Path(args.postflop_output)
+    postflop_output.parent.mkdir(parents=True, exist_ok=True)
+    postflop_output.write_text(json.dumps(postflop_export, separators=(",", ":")), encoding="utf-8")
+    print(f"Exported {len(preflop_export):,} preflop nodes to {output}")
+    print(f"Exported {len(postflop_export):,} postflop nodes to {postflop_output}")
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@
       <div id="gameplayPanel" class="tab-panel" role="tabpanel">
       <section class="table-shell" aria-label="Heads-up poker table">
         <div class="felt">
-          <div class="seat opponent-seat">
+          <div id="agentSeat" class="seat opponent-seat">
             <div class="avatar agent">AI</div>
             <div class="player-copy"><span>Lard</span><strong id="agentStack">100.0 BB</strong></div>
             <span id="agentPosition" class="position">BB</span>
@@ -47,7 +47,7 @@
 
           <div id="userBet" class="bet user-bet hidden"><span class="chip"></span><strong>0</strong></div>
 
-          <div class="seat user-seat">
+          <div id="userSeat" class="seat user-seat">
             <div class="avatar you">YOU</div>
             <div class="player-copy"><span>You</span><strong id="userStack">100.0 BB</strong></div>
             <span id="userPosition" class="position dealer">SB</span>
@@ -79,14 +79,15 @@
         </div>
 
         <div id="finishedActions" class="finished-actions hidden">
-          <button id="newHandButton" class="button primary">Deal next hand</button>
-          <span id="resultDetail"></span>
+          <button id="newHandButton" class="button primary">Deal now</button>
+          <button id="cancelNextHandButton" class="button">Cancel auto-deal</button>
+          <span class="finished-copy"><strong id="resultDetail"></strong><small id="nextHandCountdown" aria-live="polite"></small></span>
         </div>
       </section>
 
       <details class="about">
         <summary>How does the agent play?</summary>
-        <p>Preflop decisions come from the included 10-million-iteration MCCFR strategy. Sparse nodes are blended with poker priors; postflop decisions use sampled equity and board-aware aggression. Check the JS console to see the agent's action frequencies in current/past spots.</p>
+        <p>Decisions on every street come from the included 10-million-iteration MCCFR strategy. Sparser nodes blend toward poker priors. Check the JS console to see the resolved bucket, model visits, frequencies, and action.</p>
       </details>
       </div>
 

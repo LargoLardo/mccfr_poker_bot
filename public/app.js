@@ -1,3 +1,5 @@
+import { bestHand, blendSparseStrategy, buildPostflopBucket, compareScore, findPreflopStrategy, PostflopStrategy } from "./model-policy.js";
+
 const RANKS = "23456789TJQKA";
 const SUITS = "cdhs";
 const SUIT_GLYPH = { c: "♣", d: "♦", h: "♥", s: "♠" };
@@ -5,24 +7,31 @@ const STREET_NAMES = ["Preflop", "Flop", "Turn", "River"];
 const ACTIONS = ["fold", "check/call", "raise"];
 const STORAGE_KEY = "lard-plays-poker-progress-v1";
 const DISPLAY_RANKS = [...RANKS].reverse();
-const AGENT_DELAY_MS = 1_500;
+const AGENT_DELAY_MS = 2_000;
+const NEXT_HAND_DELAY_MS = 8_000;
+const SPARSE_NODE_THRESHOLD = 1_500;
 
 const $ = (id) => document.getElementById(id);
 const ui = Object.fromEntries([
-  "modelStatus", "agentStack", "userStack", "agentPosition", "userPosition", "agentCards", "userCards",
+  "modelStatus", "agentSeat", "userSeat", "agentStack", "userStack", "agentPosition", "userPosition", "agentCards", "userCards",
   "agentBet", "userBet", "pot", "board", "message", "street", "toCall", "lastAction", "actions",
-  "foldButton", "callButton", "raiseButton", "raiseSlider", "raiseOutput", "finishedActions", "newHandButton",
-  "newHandTop", "newGameTop", "resultDetail", "rangePosition", "rangeHistory", "rangeStack", "rangeSize", "rangeGrid", "rangeFold", "rangeCall", "rangeRaise",
+  "foldButton", "callButton", "raiseButton", "raiseSlider", "raiseOutput", "finishedActions", "newHandButton", "cancelNextHandButton",
+  "newHandTop", "newGameTop", "resultDetail", "nextHandCountdown", "rangePosition", "rangeHistory", "rangeStack", "rangeSize", "rangeGrid", "rangeFold", "rangeCall", "rangeRaise",
   "foldBar", "callBar", "raiseBar", "rangeDetail", "spotCoverage",
 ].map((id) => [id, $(id)]));
 
 let model = {};
+let postflopStrategy = new PostflopStrategy();
 let rangeMode = "all";
 let rangeSpots = [];
 const savedProgress = loadProgress();
 let handNumber = savedProgress.handNumber;
 let bankroll = savedProgress.bankroll;
 let game;
+let nextHandTimeout = null;
+let nextHandTicker = null;
+let nextHandDeadline = 0;
+let nextHandCancelled = false;
 
 function loadProgress() {
   try {
@@ -56,6 +65,8 @@ function pay(player, amount) {
 }
 
 function newHand() {
+  clearNextHandTimer();
+  nextHandCancelled = false;
   if (bankroll.some((stack) => stack < 1)) {
     if (game) { game.result = "Game over — start a new game to reset the stacks"; render(); }
     return;
@@ -72,7 +83,7 @@ function newHand() {
     stacks, committed: [0, 0], bets: [0, 0], pot: 0,
     user, agent, actor: 1, street: 0,
     pending: new Set([0, 1]), histories: [[], [], [], []], lastRaise: 1,
-    finished: false, reveal: false, lastAction: "Blinds posted", result: "",
+    finished: false, reveal: false, lastAction: "Blinds posted", result: "", winner: null,
   };
   pay(0, 1); pay(1, 0.5);
   logNewHand();
@@ -97,6 +108,43 @@ function startNewGame() {
   handNumber = 0;
   saveProgress();
   newHand();
+}
+
+function clearNextHandTimer() {
+  if (nextHandTimeout !== null) window.clearTimeout(nextHandTimeout);
+  if (nextHandTicker !== null) window.clearInterval(nextHandTicker);
+  nextHandTimeout = null;
+  nextHandTicker = null;
+  nextHandDeadline = 0;
+}
+
+function updateNextHandCountdown() {
+  if (nextHandDeadline === 0) return;
+  const seconds = Math.max(0, Math.ceil((nextHandDeadline - Date.now()) / 1_000));
+  ui.nextHandCountdown.textContent = `Next hand in ${seconds} second${seconds === 1 ? "" : "s"}.`;
+}
+
+function scheduleNextHand() {
+  clearNextHandTimer();
+  if (!game?.finished || bankroll.some((stack) => stack < 1)) return;
+  const completedGame = game;
+  nextHandCancelled = false;
+  nextHandDeadline = Date.now() + NEXT_HAND_DELAY_MS;
+  updateNextHandCountdown();
+  ui.cancelNextHandButton.classList.remove("hidden");
+  nextHandTicker = window.setInterval(updateNextHandCountdown, 250);
+  nextHandTimeout = window.setTimeout(() => {
+    clearNextHandTimer();
+    if (game === completedGame && game.finished) newHand();
+  }, NEXT_HAND_DELAY_MS);
+}
+
+function cancelNextHand() {
+  if (nextHandTimeout === null) return;
+  clearNextHandTimer();
+  nextHandCancelled = true;
+  ui.cancelNextHandButton.classList.add("hidden");
+  ui.nextHandCountdown.textContent = "Auto-deal cancelled.";
 }
 
 function toCall(player = game.actor) { return Math.max(...game.bets) - game.bets[player]; }
@@ -179,8 +227,9 @@ function finishHand(winner, reason, potAlreadyCollected = false) {
   saveProgress();
   game.result = winner === null ? "The pot is split" : `${name(winner)} wins ${fmt(game.pot)}`;
   game.lastAction = reason;
-  game.finished = true; game.actor = null; game.reveal = true;
+  game.finished = true; game.actor = null; game.reveal = true; game.winner = winner;
   render();
+  scheduleNextHand();
 }
 
 function name(player) { return player === game.user ? "You" : "Lard"; }
@@ -196,6 +245,10 @@ function render() {
   ui.userStack.textContent = fmt(game.stacks[user]); ui.agentStack.textContent = fmt(game.stacks[agent]);
   ui.userPosition.textContent = user === 1 ? "SB" : "BB"; ui.agentPosition.textContent = agent === 1 ? "SB" : "BB";
   ui.userPosition.classList.toggle("dealer", user === 1); ui.agentPosition.classList.toggle("dealer", agent === 1);
+  ui.userSeat.classList.toggle("to-act", !game.finished && game.actor === user);
+  ui.agentSeat.classList.toggle("to-act", !game.finished && game.actor === agent);
+  ui.userSeat.classList.toggle("hand-winner", game.finished && game.winner === user);
+  ui.agentSeat.classList.toggle("hand-winner", game.finished && game.winner === agent);
   ui.userCards.innerHTML = game.hole[user].map((card) => cardMarkup(card)).join("");
   ui.agentCards.innerHTML = game.hole[agent].map((card) => cardMarkup(card, !game.reveal)).join("");
   ui.board.innerHTML = game.board.map((card) => cardMarkup(card)).join("") + Array.from({ length: 5 - game.board.length }, () => '<span class="board-slot"></span>').join("");
@@ -211,7 +264,10 @@ function render() {
   ui.finishedActions.classList.toggle("hidden", !game.finished);
   ui.resultDetail.textContent = game.finished ? game.lastAction : "";
   const gameOver = game.finished && bankroll.some((stack) => stack < 1);
-  ui.newHandButton.textContent = gameOver ? "Start a new game" : "Deal next hand";
+  ui.newHandButton.textContent = gameOver ? "Start a new game" : "Deal now";
+  ui.cancelNextHandButton.classList.toggle("hidden", gameOver || nextHandTimeout === null);
+  if (gameOver) ui.nextHandCountdown.textContent = "A player is out of chips.";
+  else if (game.finished && nextHandCancelled) ui.nextHandCountdown.textContent = "Auto-deal cancelled.";
   for (const button of [ui.foldButton, ui.callButton, ui.raiseButton]) button.disabled = !userTurn;
   ui.foldButton.disabled = !userTurn || call === 0;
   ui.callButton.textContent = call ? `Call ${fmt(call).replace(" BB", "")}` : "Check";
@@ -276,15 +332,22 @@ function preflopDecisionContext() {
   const history = game.histories[0], hand = preflopHand(game.hole[game.agent]);
   const effective = Math.min(...game.stacks);
   const stack = effective < 20 ? "short" : effective < 50 ? "medium" : "deep";
-  const key = [hand, game.agent === 1 ? "SB" : "BB", stack, historyBucket(history), sizeBucket(history)].join("|");
-  const node = model[key];
+  const bucket = [hand, game.agent === 1 ? "SB" : "BB", stack, historyBucket(history), sizeBucket(history)];
+  const key = bucket.join("|");
+  const match = findPreflopStrategy(model, bucket);
   const fallback = heuristicPreflop(hand, history, toCall(game.agent) > 0);
-  if (!node) return { weights:fallback, spot:key, source:"heuristic fallback (untrained node)" };
-  const confidence = Math.min(node[3] / 2000, 1) * .9;
+  if (!match) return { weights:fallback, spot:key, source:"heuristic fallback (untrained node and no neighboring trained size)" };
+  const blended = blendSparseStrategy(match.strategy, fallback, SPARSE_NODE_THRESHOLD);
+  const fallbackResolution = [
+    match.sizeFallback && `${match.sizeFallback}-size fallback ${match.requestedSize} → ${match.resolvedSize}`,
+    match.stackFallback && `${match.stackFallback}-stack fallback ${match.requestedStack} → ${match.resolvedStack}`,
+  ].filter(Boolean).join("; ") || "exact requested size and stack";
   return {
-    weights:fallback.map((weight, i) => confidence * node[i] + (1 - confidence) * weight),
-    spot:key,
-    source:`trained node blended with heuristic prior (${node[3].toLocaleString()} visits)`,
+    weights:blended.weights,
+    spot:match.sizeFallback || match.stackFallback ? `${key}|resolved-node:${match.key}` : key,
+    source:blended.heuristicShare
+      ? `trained node via ${fallbackResolution} (${match.strategy[3].toLocaleString()} visits; ${(blended.heuristicShare * 100).toFixed(0)}% sparse-node heuristic blend)`
+      : `trained node via ${fallbackResolution} (${match.strategy[3].toLocaleString()} visits; no heuristic blend)`,
   };
 }
 
@@ -392,21 +455,34 @@ function renderRange() {
 }
 
 function postflopDecisionContext() {
-  const equity = estimateEquity(game.hole[game.agent], game.board, 160);
+  const features = buildPostflopBucket(game, 100);
+  const equity = features.equity;
   const facing = toCall(game.agent) > 0;
-  const position = game.agent === 1 ? "SB" : "BB";
-  const spot = `${STREET_NAMES[game.street]}|${position}|board:${game.board.join(" ")}|pot:${fmt(game.pot + game.bets[0] + game.bets[1])}|to-call:${fmt(toCall(game.agent))}|equity:${(equity * 100).toFixed(1)}%`;
-  if (!facing) return {
-    weights:[0, Math.max(.32, .82 - equity * .55), Math.min(.68, .18 + equity * .55)],
-    spot,
-    source:"postflop sampled-equity heuristic",
+  const potOdds = facing ? toCall(game.agent) / (game.pot + game.bets[0] + game.bets[1] + toCall(game.agent)) : 0;
+  let heuristic;
+  if (!facing) heuristic = [0, Math.max(.32, .82 - equity * .55), Math.min(.68, .18 + equity * .55)];
+  else if (equity > .72) heuristic = [0, .38, .62];
+  else if (equity + .06 >= potOdds) heuristic = [.12, .76, .12];
+  else heuristic = [.78, .21, .01];
+
+  const match = postflopStrategy.find(features.bucket);
+  const diagnostic = `${STREET_NAMES[game.street]}|bucket:${features.key}|equity:${(equity * 100).toFixed(1)}%|ppot:${(features.ppot * 100).toFixed(1)}%|npot:${(features.npot * 100).toFixed(1)}%`;
+  if (!match) return { weights:heuristic, spot:diagnostic, source:"heuristic fallback (no trained node in this context)" };
+
+  const blended = blendSparseStrategy(match.strategy, heuristic);
+  const fallbackResolution = [
+    match.sizeFallback && `${match.sizeFallback}-size fallback ${match.requestedSize} → ${match.resolvedSize}`,
+    match.stackFallback && `${match.stackFallback}-stack fallback ${match.requestedStack} → ${match.resolvedStack}`,
+  ].filter(Boolean);
+  const handResolution = match.distance === 0 ? "trained postflop node" : `nearest trained postflop hand bucket (distance ${match.distance})`;
+  const matchType = match.exact ? `exact ${handResolution}` : `${handResolution}${fallbackResolution.length ? `; ${fallbackResolution.join("; ")}` : ""}`;
+  return {
+    weights:blended.weights,
+    spot:diagnostic,
+    source:blended.heuristicShare
+      ? `${matchType}; ${match.strategy[3].toLocaleString()} visits; ${(blended.heuristicShare * 100).toFixed(0)}% sparse-node heuristic blend`
+      : `${matchType}; ${match.strategy[3].toLocaleString()} visits; no heuristic blend`,
   };
-  const potOdds = toCall(game.agent) / (game.pot + game.bets[0] + game.bets[1] + toCall(game.agent));
-  let weights;
-  if (equity > .72) weights = [0, .38, .62];
-  else if (equity + .06 >= potOdds) weights = [.12, .76, .12];
-  else weights = [.78, .21, .01];
-  return { weights, spot, source:`postflop sampled-equity heuristic (pot odds ${(potOdds * 100).toFixed(1)}%)` };
 }
 
 function normalizeWeights(weights) {
@@ -448,7 +524,10 @@ function scheduleAgent() {
     const choice = weightedChoice(frequencies);
     if (choice === 2) {
       const high = Math.max(...game.bets);
-      const target = game.street === 0 ? Math.max(high * 3, minRaiseTo()) : Math.max(minRaiseTo(), high + (game.pot + game.bets[0] + game.bets[1]) * .65);
+      const totalPot = game.pot + game.bets[0] + game.bets[1];
+      const target = game.street === 0
+        ? (historyBucket(game.histories[0]) === "vs_4bet" ? maxRaiseTo() : Math.max(high * 3, minRaiseTo()))
+        : Math.max(minRaiseTo(), Math.round(high + totalPot * .5));
       logAgentDecision(context, frequencies, `Raise to ${fmt(Math.min(target, maxRaiseTo()))}`);
       act("raise", Math.min(target, maxRaiseTo()));
     } else {
@@ -466,57 +545,6 @@ function weightedChoice(weights) {
   return 1;
 }
 
-function estimateEquity(hero, board, samples) {
-  const known = new Set([...hero, ...board]);
-  const available = [...RANKS].flatMap((rank) => [...SUITS].map((suit) => rank + suit)).filter((card) => !known.has(card));
-  let wins = 0;
-  for (let n = 0; n < samples; n++) {
-    const sample = [...available];
-    for (let i = sample.length - 1; i > sample.length - 8 && i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [sample[i], sample[j]] = [sample[j], sample[i]]; }
-    const needed = 5 - board.length;
-    const villain = sample.slice(-2), runout = [...board, ...sample.slice(-2 - needed, -2)];
-    const a = bestHand([...hero, ...runout]), b = bestHand([...villain, ...runout]);
-    const comparison = compareScore(a, b);
-    wins += comparison > 0 ? 1 : comparison === 0 ? .5 : 0;
-  }
-  return wins / samples;
-}
-
-function bestHand(cards) {
-  let best = null;
-  for (let a = 0; a < cards.length - 4; a++) for (let b = a + 1; b < cards.length - 3; b++)
-    for (let c = b + 1; c < cards.length - 2; c++) for (let d = c + 1; d < cards.length - 1; d++)
-      for (let e = d + 1; e < cards.length; e++) {
-        const score = scoreFive([cards[a], cards[b], cards[c], cards[d], cards[e]]);
-        if (!best || compareScore(score, best) > 0) best = score;
-      }
-  return best;
-}
-
-function scoreFive(cards) {
-  const values = cards.map((card) => RANKS.indexOf(card[0]) + 2).sort((a, b) => b - a);
-  const counts = new Map(); values.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1));
-  const groups = [...counts].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
-  const flush = cards.every((card) => card[1] === cards[0][1]);
-  const unique = [...new Set(values)]; if (unique[0] === 14) unique.push(1);
-  let straight = 0; for (let i = 0; i <= unique.length - 5; i++) if (unique[i] - unique[i + 4] === 4) straight = Math.max(straight, unique[i]);
-  if (flush && straight) return { rank:8, kickers:[straight], name:"straight flush" };
-  if (groups[0][1] === 4) return { rank:7, kickers:[groups[0][0], groups[1][0]], name:"four of a kind" };
-  if (groups[0][1] === 3 && groups[1][1] === 2) return { rank:6, kickers:[groups[0][0], groups[1][0]], name:"full house" };
-  if (flush) return { rank:5, kickers:values, name:"flush" };
-  if (straight) return { rank:4, kickers:[straight], name:"straight" };
-  if (groups[0][1] === 3) return { rank:3, kickers:[groups[0][0], ...groups.slice(1).map((g) => g[0]).sort((a,b)=>b-a)], name:"three of a kind" };
-  if (groups[0][1] === 2 && groups[1][1] === 2) return { rank:2, kickers:[Math.max(groups[0][0], groups[1][0]), Math.min(groups[0][0], groups[1][0]), groups[2][0]], name:"two pair" };
-  if (groups[0][1] === 2) return { rank:1, kickers:[groups[0][0], ...groups.slice(1).map((g) => g[0]).sort((a,b)=>b-a)], name:"pair" };
-  return { rank:0, kickers:values, name:"high card" };
-}
-
-function compareScore(a, b) {
-  if (a.rank !== b.rank) return a.rank - b.rank;
-  for (let i = 0; i < Math.max(a.kickers.length, b.kickers.length); i++) if ((a.kickers[i] || 0) !== (b.kickers[i] || 0)) return (a.kickers[i] || 0) - (b.kickers[i] || 0);
-  return 0;
-}
-
 ui.foldButton.addEventListener("click", () => act("fold"));
 ui.callButton.addEventListener("click", () => act("check/call"));
 ui.raiseButton.addEventListener("click", () => act("raise", +ui.raiseSlider.value));
@@ -528,6 +556,7 @@ document.querySelectorAll("[data-size]").forEach((button) => button.addEventList
   ui.raiseOutput.textContent = fmt(+ui.raiseSlider.value);
 }));
 ui.newHandButton.addEventListener("click", () => bankroll.some((stack) => stack < 1) ? startNewGame() : newHand());
+ui.cancelNextHandButton.addEventListener("click", cancelNextHand);
 ui.newHandTop.addEventListener("click", newHand);
 ui.newGameTop.addEventListener("click", startNewGame);
 function activateTab(button) {
@@ -550,11 +579,17 @@ document.addEventListener("keydown", (event) => {
 });
 
 try {
-  model = await fetch("/preflop-model.json").then((response) => {
-    if (!response.ok) throw new Error("Strategy unavailable");
-    return response.json();
+  const [preflopNodes, postflopNodes] = await Promise.all([
+    fetch("/preflop-model.json"),
+    fetch("/postflop-model.json"),
+  ]).then(async (responses) => {
+    if (responses.some((response) => !response.ok)) throw new Error("Strategy unavailable");
+    return Promise.all(responses.map((response) => response.json()));
   });
-  ui.modelStatus.classList.add("ready"); ui.modelStatus.lastChild.textContent = ` ${Object.keys(model).length.toLocaleString()} strategy nodes`;
+  model = preflopNodes;
+  postflopStrategy = new PostflopStrategy(postflopNodes);
+  const totalNodes = Object.keys(preflopNodes).length + Object.keys(postflopNodes).length;
+  ui.modelStatus.classList.add("ready"); ui.modelStatus.lastChild.textContent = ` ${totalNodes.toLocaleString()} full-game strategy nodes`;
   initializeRangeExplorer();
 } catch (error) {
   ui.modelStatus.lastChild.textContent = " Heuristic strategy";
