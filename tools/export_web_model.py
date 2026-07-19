@@ -18,6 +18,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", nargs="?", default=ROOT / "FULLGAME_10m_iters.pkl")
     parser.add_argument("output", nargs="?", default=ROOT / "public" / "preflop-model.json")
+    parser.add_argument(
+        "--swap-legacy-positions",
+        action="store_true",
+        help="Correct node sets trained before PokerKit's heads-up seat mapping was fixed.",
+    )
     args = parser.parse_args()
 
     # Older training runs were launched as scripts, so pickle recorded __main__.Node.
@@ -33,7 +38,10 @@ def main() -> None:
         total = sum(weights)
         if total <= 0:
             continue
-        exported["|".join(map(str, bucket))] = [round(weight / total, 5) for weight in weights] + [node.times_visited]
+        output_bucket = list(bucket)
+        if args.swap_legacy_positions:
+            output_bucket[1] = "SB" if bucket[1] == "BB" else "BB"
+        exported["|".join(map(str, output_bucket))] = [round(weight / total, 5) for weight in weights] + [node.times_visited]
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

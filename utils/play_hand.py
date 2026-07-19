@@ -205,7 +205,7 @@ def agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
     \nagent: dict\n
     - The dictionary containing all the buckets and corresponding nodes that the agent plays from.
     \nagent_pos: int\n
-    - What position the agent should start in, 0 for SB, 1 for BB.
+    - What position the agent should start in, 0 for BB, 1 for SB.
     """
     state = NoLimitTexasHoldem.create_state(
         (
@@ -303,7 +303,7 @@ def full_agent_vs_random(agent: dict, agent_pos: int, logger: Logger) -> State:
     \nagent: dict\n
     - The dictionary containing all the buckets and corresponding nodes that the agent plays from.
     \nagent_pos: int\n
-    - What position the agent should start in, 0 for SB, 1 for BB.
+    - What position the agent should start in, 0 for BB, 1 for SB.
     """
     state = NoLimitTexasHoldem.create_state(
         (
@@ -410,7 +410,7 @@ def agent_vs_agent(agent: dict, agent_2: dict, agent_pos: int, logger: Logger) -
     \nagent: dict\n
     - The dictionary containing all the buckets and corresponding nodes that the agent plays from.
     \nagent_pos: int\n
-    - What position the agent should start in, 0 for SB, 1 for BB.
+    - What position the agent should start in, 0 for BB, 1 for SB.
     """
     state = NoLimitTexasHoldem.create_state(
         (
@@ -531,7 +531,7 @@ def full_agent_vs_player(agent: dict, agent_pos: int, logger: Logger) -> State:
     \nagent: dict\n
     - The dictionary containing all the buckets and corresponding nodes that the agent plays from.
     \nagent_pos: int\n
-    - What position the agent should start in, 0 for SB, 1 for BB.
+    - What position the agent should start in, 0 for BB, 1 for SB.
     """
     state = NoLimitTexasHoldem.create_state(
         (

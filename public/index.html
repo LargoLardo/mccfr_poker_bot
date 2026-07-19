@@ -17,10 +17,17 @@
       <div class="top-actions">
         <span id="modelStatus" class="status"><i></i> Loading strategy</span>
         <button id="newHandTop" class="button ghost">New hand</button>
+        <button id="newGameTop" class="button ghost danger">New game</button>
       </div>
     </header>
 
     <main>
+      <nav class="view-tabs" role="tablist" aria-label="Application views">
+        <button class="view-tab active" role="tab" aria-selected="true" aria-controls="gameplayPanel" data-tab="gameplayPanel">Gameplay</button>
+        <button class="view-tab" role="tab" aria-selected="false" aria-controls="strategyPanel" data-tab="strategyPanel">Strategy explorer</button>
+      </nav>
+
+      <div id="gameplayPanel" class="tab-panel" role="tabpanel">
       <section class="table-shell" aria-label="Heads-up poker table">
         <div class="felt">
           <div class="seat opponent-seat">
@@ -79,8 +86,48 @@
 
       <details class="about">
         <summary>How does the agent play?</summary>
-        <p>Preflop decisions come from the included 10-million-iteration MCCFR strategy. Sparse nodes are blended with poker priors; postflop decisions use sampled equity and board-aware aggression. Checking is always preferred over a meaningless fold.</p>
+        <p>Preflop decisions come from the included 10-million-iteration MCCFR strategy. Sparse nodes are blended with poker priors; postflop decisions use sampled equity and board-aware aggression. Check the JS console to see the agent's action frequencies in current/past spots.</p>
       </details>
+      </div>
+
+      <section id="strategyPanel" class="range-panel tab-panel hidden" role="tabpanel" aria-labelledby="rangeTitle">
+        <div class="range-header">
+          <div>
+            <span class="eyebrow">Strategy explorer</span>
+            <h2 id="rangeTitle">Preflop range</h2>
+            <p>Select a decision spot to inspect the trained fold, call, and raise frequencies for every starting hand.</p>
+          </div>
+        </div>
+
+        <div class="spot-filters" aria-label="Decision spot filters">
+          <label><span>Position</span><select id="rangePosition"></select></label>
+          <label><span>Stack depth</span><select id="rangeStack"></select></label>
+          <label><span>Decision</span><select id="rangeHistory"></select></label>
+          <label><span>Facing size</span><select id="rangeSize"></select></label>
+        </div>
+        <p id="spotCoverage" class="spot-coverage" aria-live="polite"></p>
+
+        <div class="range-toolbar" aria-label="Range display mode">
+          <button class="range-mode active" data-range-action="all">Mixed strategy</button>
+          <button class="range-mode fold-mode" data-range-action="fold"><i></i> Fold</button>
+          <button class="range-mode call-mode" data-range-action="check/call"><i></i> Call</button>
+          <button class="range-mode raise-mode" data-range-action="raise"><i></i> Raise</button>
+        </div>
+
+        <div class="range-content">
+          <div class="range-grid-wrap">
+            <div id="rangeGrid" class="range-grid" aria-label="13 by 13 starting-hand strategy matrix"></div>
+          </div>
+          <aside class="range-summary">
+            <span class="eyebrow">Weighted frequency</span>
+            <div class="frequency-row"><span><i class="fold-dot"></i>Fold</span><strong id="rangeFold">0%</strong></div>
+            <div class="frequency-row"><span><i class="call-dot"></i>Call</span><strong id="rangeCall">0%</strong></div>
+            <div class="frequency-row"><span><i class="raise-dot"></i>Raise</span><strong id="rangeRaise">0%</strong></div>
+            <div class="frequency-bar"><i id="foldBar"></i><i id="callBar"></i><i id="raiseBar"></i></div>
+            <p id="rangeDetail" aria-live="polite">Hover or tap a hand to see its exact action mix.</p>
+          </aside>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="/app.js"></script>

@@ -11,7 +11,7 @@ from __future__ import annotations
 import random
 from collections.abc import Mapping
 
-LOW_VISIT_THRESHOLD = 2_000
+LOW_VISIT_THRESHOLD = 500
 
 
 def can_meaningfully_fold(state) -> bool:
@@ -91,7 +91,7 @@ def action_weights(state, bucket: tuple, node=None) -> dict[str, float]:
     confidence = min(visits / LOW_VISIT_THRESHOLD, 1.0) if raw_total > 0 else 0.0
     # Keep a small prior even for mature nodes; it prevents stale historical
     # fold mass from resurfacing in spots where checking is free.
-    confidence *= 0.9
+    confidence *= 0.95
     trained = {action: max(float(raw.get(action, 0.0)), 0.0) / raw_total for action in legal} if raw_total else {}
     fallback_total = sum(fallback.values()) or 1.0
     weights = {

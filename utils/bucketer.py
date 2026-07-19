@@ -12,8 +12,8 @@ class Bucketer:
         hand_bucket = preflop_card_bucket(state)
 
         # ---------- position bucket ----------
-        # Assumes heads-up: actor 0 = SB, actor 1 = BB
-        position_bucket = "SB" if actor == 0 else "BB"
+        # PokerKit heads-up seats: actor 0 = BB, actor 1 = SB.
+        position_bucket = "BB" if actor == 0 else "SB"
 
         # ---------- effective stack bucket ----------
         # Assumes state.stacks exists and blinds are normalized to bb units,
@@ -93,7 +93,7 @@ class Bucketer:
         
         hand_bucket = flop_card_bucket(state, n_samples=self.samples)
 
-        position_bucket = "SB" if actor == 0 else "BB"
+        position_bucket = "BB" if actor == 0 else "SB"
         
         raise_count = history.count("raise")
         raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
@@ -127,7 +127,7 @@ class Bucketer:
         
         hand_bucket = turn_card_bucket(state, n_samples=self.samples)
 
-        position_bucket = "SB" if actor == 0 else "BB"
+        position_bucket = "BB" if actor == 0 else "SB"
         
         # raise_count = turn_history.count("raise")
         # raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
@@ -194,7 +194,7 @@ class Bucketer:
         
         hand_bucket = river_card_bucket(state, n_samples=self.samples)
 
-        position_bucket = "SB" if actor == 0 else "BB"
+        position_bucket = "BB" if actor == 0 else "SB"
         
         # raise_count = river_history.count("raise")
         # raises_this_street_bucket = raise_count if raise_count < 3 else 3  # capped at 3
@@ -262,8 +262,8 @@ class Bucketer:
         hand_bucket = exact_preflop_card_bucket(state)
 
         # ---------- position bucket ----------
-        # Assumes heads-up: actor 0 = SB, actor 1 = BB
-        position_bucket = "SB" if actor == 0 else "BB"
+        # PokerKit heads-up seats: actor 0 = BB, actor 1 = SB.
+        position_bucket = "BB" if actor == 0 else "SB"
 
         # ---------- effective stack bucket ----------
         # Assumes state.stacks exists and blinds are normalized to bb units,

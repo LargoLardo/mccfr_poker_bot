@@ -3,9 +3,26 @@
 ## Play in the browser
 
 The repository includes a dependency-free web table backed by the bundled
-10-million-iteration preflop strategy. Run it locally with `npx vercel dev`, or
-import the repository into Vercel and deploy with the default settings. No
-environment variables, database, or build output directory are required.
+10-million-iteration preflop strategy. Gameplay and the filterable 13x13
+strategy explorer live on separate tabs, and the player's stack persists
+between completed hands in browser storage.
+
+For the quickest local development server, run:
+
+```bash
+python -m http.server 8000 --directory public
+```
+
+Then open `http://localhost:8000`. To reproduce Vercel's development routing,
+run `npx vercel dev` instead. You can also import the repository into Vercel and
+deploy with the default settings. No environment variables or database are
+required.
+
+Open the browser developer console while playing to inspect the agent trace.
+Each hand logs an ISO timestamp and Lard's cards; each decision logs its
+interpreted spot, strategy source, normalized fold/call/raise frequencies, and
+sampled action. Agent actions use a 1.5-second delay so they are readable in the
+table UI.
 
 `vercel.json` explicitly sets the Framework Preset to **Other** so Vercel does
 not mistake the repository's offline Python training scripts for a Python web
@@ -16,6 +33,10 @@ The compact browser model can be regenerated after training with:
 ```bash
 python tools/export_web_model.py nodesets/your_model.pkl
 ```
+
+For node sets trained before the heads-up position mapping fix, add
+`--swap-legacy-positions`. The bundled 10M model has already been exported
+with this correction.
 
 No-limit Texas Hold’em bots trained with **external-sampling Monte Carlo CFR** (MCCFR), built on [pokerkit](https://github.com/uoft-cs/pokerkit). The main line trains **preflop-only** (`pf_mccfr.py`) and **full-street** (`full_game_mccfr.py`) abstractions using card bucketing and pickled node stores.
 
